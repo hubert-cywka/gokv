@@ -1,70 +1,186 @@
 package wal
 
 import (
+	"bufio"
 	"errors"
-	"os"
+	"io"
+	"kv/storage"
+	"kv/wal/data"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
-type WriteAheadLog struct {
-	file  *os.File
-	mutex sync.RWMutex
+var ErrWalClosed = errors.New("wal: closed")
+
+type batchCommitContext struct {
+	done chan struct{}
+	err  error
 }
 
-func NewWriteAheadLog(path string) (*WriteAheadLog, error) {
-	f, err := openLogFile(path)
+type WriteAheadLogOptions struct {
+	BatchCommitWaitTime time.Duration
+	WriterBufferSize    int
+}
 
-	if err != nil {
-		return nil, errors.New("failed to open log file")
-	}
+type WriteAheadLog struct {
+	file   storage.File
+	closed bool
+
+	writer *bufio.Writer
+	mutex  sync.Mutex
+
+	encoder *data.Encoder
+	decoder *data.Decoder
+
+	batch   *batchCommitContext
+	options WriteAheadLogOptions
+}
+
+func NewWriteAheadLog(options WriteAheadLogOptions, file storage.File) (*WriteAheadLog, error) {
+	bufferedWriter := bufio.NewWriterSize(file, options.WriterBufferSize)
 
 	return &WriteAheadLog{
-		file:  f,
-		mutex: sync.RWMutex{},
+		file:    file,
+		writer:  bufferedWriter,
+		encoder: data.NewEncoder(bufferedWriter),
+		decoder: data.NewDecoder(file),
+		options: options,
 	}, nil
 }
 
-func (w *WriteAheadLog) Read() ([]Record, error) {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
+func (w *WriteAheadLog) Append(record *data.Record) error {
+	w.mutex.Lock()
 
-	_, err := w.file.Seek(0, 0)
-	if err != nil {
-		return nil, err
+	if w.closed {
+		w.mutex.Unlock()
+		return ErrWalClosed
 	}
 
-	var records []Record
+	if err := w.encoder.Encode(record); err != nil {
+		w.mutex.Unlock()
+		log.Error().
+			Msg("wal: append failed")
 
-	for {
-		record := Record{}
-		ok := record.Read(w.file)
-
-		if !ok {
-			break
-		}
-
-		records = append(records, record)
+		return err
 	}
 
-	return records, nil
+	if w.batch == nil {
+		log.Debug().
+			Msg("wal: starting batch commit")
+
+		w.batch = &batchCommitContext{done: make(chan struct{})}
+		time.AfterFunc(w.options.BatchCommitWaitTime, w.finalizeBatchCommit)
+	} else {
+		log.Debug().
+			Msg("wal: joining batch commit")
+	}
+
+	currentBatch := w.batch
+	w.mutex.Unlock()
+
+	<-currentBatch.done
+	return currentBatch.err
 }
 
-func (w *WriteAheadLog) Append(record *Record) error {
+func (w *WriteAheadLog) Replay(apply func(data.Record)) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+	log.Debug().
+		Msg("wal: replaying")
 
-	record.Write(w.file)
-	return w.flush()
-}
+	if _, err := w.file.Seek(0, io.SeekStart); err != nil {
+		log.Error().
+			Msg("wal: replay failed, couldn't seek")
 
-func (w *WriteAheadLog) flush() error {
-	return w.file.Sync()
+		return err
+	}
+
+	for {
+		var r data.Record
+
+		if err := w.decoder.Decode(&r); err != nil {
+			if err == io.EOF {
+				log.Debug().
+					Msg("wal: replayed all records")
+
+				break
+			}
+
+			log.Error().
+				Msg("wal: replay failed, couldn't read record")
+
+			return err
+		}
+
+		apply(r)
+	}
+
+	_, err := w.file.Seek(0, io.SeekEnd)
+	return err
 }
 
 func (w *WriteAheadLog) Close() error {
+	w.mutex.Lock()
+
+	if w.closed {
+		w.mutex.Unlock()
+		return nil
+	}
+
+	w.closed = true
+	activeBatch := w.batch
+	w.mutex.Unlock()
+
+	if activeBatch != nil {
+		<-activeBatch.done
+	}
+
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if err := w.commit(); err != nil {
+		log.Error().
+			Msg("wal: failed to commit before close")
+
+		_ = w.file.Close()
+		return err
+	}
+
+	log.Debug().
+		Msg("wal: closed")
+
 	return w.file.Close()
 }
 
-func openLogFile(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+func (w *WriteAheadLog) commit() error {
+	if err := w.writer.Flush(); err != nil {
+		return err
+	}
+
+	log.Debug().
+		Msg("wal: committed")
+
+	return w.file.Sync()
+}
+
+func (w *WriteAheadLog) finalizeBatchCommit() {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.batch == nil {
+		log.Debug().
+			Msg("wal: no active batch to commit")
+
+		return
+	}
+
+	activeBatch := w.batch
+	w.batch = nil
+
+	err := w.commit()
+
+	activeBatch.err = err
+	close(activeBatch.done)
 }

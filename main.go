@@ -1,39 +1,112 @@
 package main
 
 import (
-	"fmt"
-	"kv/kv_store"
-	"kv/mem_store"
+	"kv/cache"
+	"kv/observability"
+	"kv/storage"
 	"kv/wal"
+	"kv/wal/data"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	defaultWalBufferSize     = 512 * 1024
+	defaultWalCommitWaitTime = 5 * time.Minute
+
+	defaultLogSegmentSize = 512 * 1024
+	defaultLogDirectory   = "./log"
+
+	defaultMaxKeySize   = 1024
+	defaultMaxValueSize = 128 * 1024
+
+	defaultCachePartitions               = 64
+	defaultCachePartitionInitialCapacity = 16 * 1024
 )
 
 func main() {
-	writeAheadLog, _ := wal.NewWriteAheadLog("./wal.log")
-	defer writeAheadLog.Close()
-	records, _ := writeAheadLog.Read()
+	observability.SetLoggingLevel(zerolog.InfoLevel)
 
-	store := mem_store.NewMemStore()
+	cacheOptions := cache.Options{
+		Partitions:      defaultCachePartitions,
+		InitialCapacity: defaultCachePartitionInitialCapacity,
+	}
+	partitionedCache := cache.NewPartitionedCache(cacheOptions)
 
-	for _, record := range records {
-		switch record.Kind() {
-		case wal.Update:
-			_ = store.Set(string(record.Key()), record.Value())
-		case wal.Delete:
-			_ = store.Delete(string(record.Key()))
-		}
+	logStreamOptions := storage.LogOptions{
+		SegmentSize:   defaultLogSegmentSize,
+		LogsDirectory: defaultLogDirectory,
+	}
+	logStream, _ := storage.NewLog(logStreamOptions)
+
+	walOptions := wal.WriteAheadLogOptions{
+		WriterBufferSize:    defaultWalBufferSize,
+		BatchCommitWaitTime: defaultWalCommitWaitTime,
+	}
+	writeAheadLog, err := wal.NewWriteAheadLog(walOptions, logStream)
+
+	if err != nil {
+		log.Fatal().
+			Err(err).
+			Msg("server: failed to initialize WAL")
 	}
 
-	kvStore := kv_store.NewKeyValueStore(store, writeAheadLog)
+	defer closeWal(writeAheadLog)
+	restoreCacheState(partitionedCache, writeAheadLog)
 
-	v1, _ := kvStore.Get("key1")
-	v2, _ := kvStore.Get("key2")
-	v3, _ := kvStore.Get("key3")
+	kvOptions := KeyValueStoreOptions{
+		Validation: ValidationOptions{
+			MaxKeySize:   defaultMaxKeySize,
+			MaxValueSize: defaultMaxValueSize,
+		},
+	}
 
-	kvStore.Set("key1", []byte("111"))
-	kvStore.Set("key2", []byte("222"))
-	kvStore.Set("key3", []byte("333"))
+	kvStore := NewKeyValueStore(partitionedCache, writeAheadLog, kvOptions)
+	_, _ = kvStore.Get("empty")
+}
 
-	fmt.Println(string(v1))
-	fmt.Println(string(v2))
-	fmt.Println(string(v3))
+func closeWal(wal *wal.WriteAheadLog) {
+	err := wal.Close()
+
+	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("server: failed to close WAL")
+	}
+}
+
+func restoreCacheState(cache *cache.PartitionedCache, wal *wal.WriteAheadLog) {
+	log.Info().
+		Msg("server: replaying WAL.")
+
+	replayCount := 0
+	var replayErr error
+
+	replayFunc := func(record data.Record) {
+
+		if record.Kind() == data.Delete {
+			replayErr = cache.Delete(string(record.Key()))
+		} else {
+			replayErr = cache.Set(string(record.Key()), record.Value())
+		}
+
+		if replayErr != nil {
+			log.Fatal().
+				Err(replayErr).
+				Msg("server: failed to replay WAL")
+		}
+
+		replayCount++
+	}
+
+	if err := wal.Replay(replayFunc); err != nil {
+		log.Fatal().
+			Err(err).
+			Msg("server: failed to replay WAL")
+	}
+
+	log.Info().
+		Msgf("server: replay complete, restored %d records.", replayCount)
 }

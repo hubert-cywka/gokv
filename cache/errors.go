@@ -1,4 +1,4 @@
-package mem_store
+package cache
 
 import "errors"
 

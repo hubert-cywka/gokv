@@ -1,4 +1,4 @@
-package store
+package main
 
 type Store interface {
 	Get(key string) ([]byte, error)
