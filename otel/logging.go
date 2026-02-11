@@ -1,4 +1,4 @@
-package observability
+package otel
 
 import "github.com/rs/zerolog"
 

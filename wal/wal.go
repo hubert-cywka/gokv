@@ -4,15 +4,23 @@ import (
 	"bufio"
 	"errors"
 	"io"
-	"kv/storage"
-	"kv/wal/data"
+	"kv/wal/record"
+	"kv/wal/storage"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-var ErrWalClosed = errors.New("wal: closed")
+// TODO: Partitioned WAL
+// - Quick append, slower replay.
+
+// TODO: Compaction
+// 1. Manifest file with metadata (e.g., 1st segment path).
+// 2. Temporary files.
+// 3. Clean up afterward.
+
+var WriteAheadLogClosedError = errors.New("wal: closed")
 
 type batchCommitContext struct {
 	done chan struct{}
@@ -31,8 +39,8 @@ type WriteAheadLog struct {
 	writer *bufio.Writer
 	mutex  sync.Mutex
 
-	encoder *data.Encoder
-	decoder *data.Decoder
+	encoder *record.Encoder
+	decoder *record.Decoder
 
 	batch   *batchCommitContext
 	options WriteAheadLogOptions
@@ -44,18 +52,18 @@ func NewWriteAheadLog(options WriteAheadLogOptions, file storage.File) (*WriteAh
 	return &WriteAheadLog{
 		file:    file,
 		writer:  bufferedWriter,
-		encoder: data.NewEncoder(bufferedWriter),
-		decoder: data.NewDecoder(file),
+		encoder: record.NewEncoder(bufferedWriter),
+		decoder: record.NewDecoder(file),
 		options: options,
 	}, nil
 }
 
-func (w *WriteAheadLog) Append(record *data.Record) error {
+func (w *WriteAheadLog) Append(record *record.Record) error {
 	w.mutex.Lock()
 
 	if w.closed {
 		w.mutex.Unlock()
-		return ErrWalClosed
+		return WriteAheadLogClosedError
 	}
 
 	if err := w.encoder.Encode(record); err != nil {
@@ -84,7 +92,7 @@ func (w *WriteAheadLog) Append(record *data.Record) error {
 	return currentBatch.err
 }
 
-func (w *WriteAheadLog) Replay(apply func(data.Record)) error {
+func (w *WriteAheadLog) Replay(apply func(record.Record)) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	log.Debug().
@@ -98,7 +106,7 @@ func (w *WriteAheadLog) Replay(apply func(data.Record)) error {
 	}
 
 	for {
-		var r data.Record
+		var r record.Record
 
 		if err := w.decoder.Decode(&r); err != nil {
 			if err == io.EOF {

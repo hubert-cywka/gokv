@@ -7,11 +7,35 @@ import (
 	"testing"
 )
 
+func AssertTrue(t *testing.T, got bool) {
+	t.Helper()
+
+	if !got {
+		t.Errorf("expected %v to be true", got)
+	}
+}
+
+func AssertFalse(t *testing.T, got bool) {
+	t.Helper()
+
+	if got {
+		t.Errorf("expected %v to be false", got)
+	}
+}
+
 func AssertEqual[T comparable](t *testing.T, got, want T) {
 	t.Helper()
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("expected %v, got %v", want, got)
+	}
+}
+
+func AssertNotEqual[T comparable](t *testing.T, got, want T) {
+	t.Helper()
+
+	if reflect.DeepEqual(got, want) {
+		t.Errorf("expected %v to not equal %v", want, got)
 	}
 }
 

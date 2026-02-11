@@ -1,4 +1,4 @@
-package data
+package record
 
 import (
 	"kv/test"
@@ -7,30 +7,40 @@ import (
 
 func TestRecord_Checksum(t *testing.T) {
 	t.Run("it changes checksum when key changes", func(t *testing.T) {
-		record := NewValueRecord("key", []byte("value"))
+		record := NewValue("Key", []byte("Value"), 1)
 		previous := record.Checksum()
 
-		record.key = []byte("modified_key")
+		record.Key = []byte("modified_key")
 		current := record.Checksum()
 
 		test.AssertBytesNotEqual(t, previous, current)
 	})
 
 	t.Run("it changes checksum when value changes", func(t *testing.T) {
-		record := NewValueRecord("key", []byte("value"))
+		record := NewValue("Key", []byte("Value"), 1)
 		previous := record.Checksum()
 
-		record.value = []byte("modified_value")
+		record.Value = []byte("modified_value")
 		current := record.Checksum()
 
 		test.AssertBytesNotEqual(t, previous, current)
 	})
 
 	t.Run("it changes checksum when kind changes", func(t *testing.T) {
-		record := NewValueRecord("key", []byte("value"))
+		record := NewValue("Key", []byte("Value"), 1)
 		previous := record.Checksum()
 
-		record.kind = Delete
+		record.Kind = Tombstone
+		current := record.Checksum()
+
+		test.AssertBytesNotEqual(t, previous, current)
+	})
+
+	t.Run("it changes checksum when transaction ID changes", func(t *testing.T) {
+		record := NewValue("Key", []byte("Value"), 1)
+		previous := record.Checksum()
+
+		record.TxID = 9999999
 		current := record.Checksum()
 
 		test.AssertBytesNotEqual(t, previous, current)

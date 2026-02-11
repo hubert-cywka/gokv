@@ -1,10 +1,11 @@
-package data
+package record
 
 import (
 	"bytes"
 	"encoding/binary"
 	"io"
 	"kv/test"
+	"kv/tx"
 	"testing"
 )
 
@@ -13,9 +14,10 @@ func TestEncoder_Encode(t *testing.T) {
 		buf := new(bytes.Buffer)
 		encoder := NewEncoder(buf)
 
-		key := "key"
-		val := []byte("value")
-		record := NewValueRecord(key, val)
+		txID := 1
+		key := "Key"
+		val := []byte("Value")
+		record := NewValue(key, val, txID)
 
 		err := encoder.Encode(record)
 		test.AssertNoError(t, err)
@@ -26,8 +28,12 @@ func TestEncoder_Encode(t *testing.T) {
 		expectedTotalLen := headerSize + len(key) + len(val)
 		test.AssertEqual(t, len(data), expectedTotalLen)
 
-		test.AssertEqual(t, data[offset], Update)
+		test.AssertEqual(t, data[offset], Value)
 		offset += kindSize
+
+		gotTxID := binary.LittleEndian.Uint64(data[offset : offset+txIDSize])
+		offset += txIDSize
+		test.AssertEqual(t, gotTxID, txID)
 
 		gotKeyLen := binary.LittleEndian.Uint16(data[offset : offset+keyLengthSize])
 		offset += keyLengthSize
@@ -48,7 +54,7 @@ func TestEncoder_Encode(t *testing.T) {
 		errWriter := &limitedWriter{limit: 3}
 		encoder := NewEncoder(errWriter)
 
-		record := NewValueRecord("long-key", []byte("value"))
+		record := NewValue("long-Key", []byte("Value"), 1)
 		err := encoder.Encode(record)
 
 		if err == nil {

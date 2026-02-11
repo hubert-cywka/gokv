@@ -1,11 +1,11 @@
 package test
 
 import (
-	"kv/observability"
+	"kv/otel"
 
 	"github.com/rs/zerolog"
 )
 
 func DisableLogging() {
-	observability.SetLoggingLevel(zerolog.Disabled)
+	otel.SetLoggingLevel(zerolog.Disabled)
 }

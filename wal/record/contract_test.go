@@ -1,4 +1,4 @@
-package data
+package record
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ func TestEncodingContract(t *testing.T) {
 		encoder := NewEncoder(buf)
 		decoder := NewDecoder(buf)
 
-		original := NewValueRecord("key", []byte("value"))
+		original := NewValue("Key", []byte("Value"), 1)
 
 		err := encoder.Encode(original)
 		test.AssertNoError(t, err)
@@ -21,8 +21,9 @@ func TestEncodingContract(t *testing.T) {
 		err = decoder.Decode(decoded)
 		test.AssertNoError(t, err)
 
-		test.AssertEqual(t, decoded.Kind(), original.Kind())
-		test.AssertBytesEqual(t, decoded.Key(), original.Key())
-		test.AssertBytesEqual(t, decoded.Value(), original.Value())
+		test.AssertEqual(t, decoded.Kind, original.Kind)
+		test.AssertEqual(t, decoded.TxID, original.TxID)
+		test.AssertBytesEqual(t, decoded.Key, original.Key)
+		test.AssertBytesEqual(t, decoded.Value, original.Value)
 	})
 }

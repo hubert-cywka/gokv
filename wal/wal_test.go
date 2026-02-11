@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"kv/test"
-	"kv/wal/data"
+	"kv/wal/record"
 	"strconv"
 	"sync"
 	"testing"
@@ -28,10 +28,9 @@ func TestWriteAheadLog_Append(t *testing.T) {
 		errChan := make(chan error)
 
 		value := []byte("value")
-		record := data.NewValueRecord("key", value)
 
 		go func() {
-			errChan <- wal.Append(record)
+			errChan <- wal.Append(record.NewValue("key", value, 1))
 		}()
 
 		assertNotSynced(t, file)
@@ -55,7 +54,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 		for i := 0; i < count; i++ {
 			go func(id int) {
 				defer wg.Done()
-				_ = wal.Append(data.NewValueRecord("key-"+strconv.Itoa(id), value(id)))
+				_ = wal.Append(record.NewValue("key-"+strconv.Itoa(id), value(id), 1))
 			}(i)
 		}
 
@@ -72,10 +71,9 @@ func TestWriteAheadLog_Append(t *testing.T) {
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		_ = wal.Close()
-		record := data.NewValueRecord("key", []byte("value"))
-		err := wal.Append(record)
+		err := wal.Append(record.NewValue("key", []byte("value"), 1))
 
-		test.AssertError(t, err, ErrWalClosed)
+		test.AssertError(t, err, WriteAheadLogClosedError)
 	})
 }
 
@@ -90,14 +88,14 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 		file := newMemFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
-		record1 := data.NewValueRecord("key1", []byte("value1"))
-		record2 := data.NewValueRecord("key2", []byte("value2"))
+		record1 := record.NewValue("key1", []byte("value1"), 1)
+		record2 := record.NewValue("key2", []byte("value2"), 1)
 		_ = wal.Append(record1)
 		_ = wal.Append(record2)
 
-		got := make([]*data.Record, 0)
-		replayFunc := func(record data.Record) {
-			got = append(got, &record)
+		got := make([]*record.Record, 0)
+		replayFunc := func(r record.Record) {
+			got = append(got, &r)
 		}
 
 		err := wal.Replay(replayFunc)
@@ -112,18 +110,18 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 		file := newMemFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
-		_ = wal.Append(data.NewValueRecord("key1", []byte("value1")))
-		_ = wal.Append(data.NewValueRecord("key2", []byte("value2")))
-		_ = wal.Append(data.NewValueRecord("key3", []byte("value3")))
+		_ = wal.Append(record.NewValue("key1", []byte("value1"), 1))
+		_ = wal.Append(record.NewValue("key2", []byte("value2"), 1))
+		_ = wal.Append(record.NewValue("key3", []byte("value3"), 1))
 
-		firstReplayResult := make([]*data.Record, 0)
-		secondReplayResult := make([]*data.Record, 0)
+		firstReplayResult := make([]*record.Record, 0)
+		secondReplayResult := make([]*record.Record, 0)
 
-		_ = wal.Replay(func(record data.Record) {
+		_ = wal.Replay(func(record record.Record) {
 			firstReplayResult = append(firstReplayResult, &record)
 		})
 
-		_ = wal.Replay(func(record data.Record) {
+		_ = wal.Replay(func(record record.Record) {
 			secondReplayResult = append(secondReplayResult, &record)
 		})
 
@@ -146,10 +144,9 @@ func TestWriteAheadLog_Close(t *testing.T) {
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		value := []byte("value")
-		record := data.NewValueRecord("key", value)
 
 		go func() {
-			_ = wal.Append(record)
+			_ = wal.Append(record.NewValue("key", value, 1))
 		}()
 
 		time.Sleep(commitWaitTime / 2)

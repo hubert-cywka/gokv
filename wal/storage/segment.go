@@ -97,8 +97,9 @@ func (s *Segment) Read(buffer []byte) (n int, err error) {
 }
 
 func (s *Segment) Write(buffer []byte) (n int, err error) {
-	space, err := s.Space()
-	if err != nil {
+	var space int64
+
+	if space, err = s.Space(); err != nil {
 		return 0, err
 	}
 
@@ -138,13 +139,11 @@ func (s *Segment) Close() error {
 		return err
 	}
 
-	if err := file.Sync(); err != nil {
+	if err = file.Sync(); err != nil {
 		return err
 	}
 
-	err = file.Close()
-
-	if err == nil {
+	if err = file.Close(); err == nil {
 		s.file = nil
 	}
 

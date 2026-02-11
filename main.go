@@ -1,11 +1,12 @@
 package main
 
 import (
-	"kv/cache"
-	"kv/observability"
-	"kv/storage"
+	"kv/memstore"
+	"kv/otel"
 	"kv/wal"
-	"kv/wal/data"
+	"kv/wal/record"
+	"kv/wal/storage"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -14,30 +15,25 @@ import (
 
 const (
 	defaultWalBufferSize     = 512 * 1024
-	defaultWalCommitWaitTime = 5 * time.Minute
+	defaultWalCommitWaitTime = 5 * time.Millisecond
 
-	defaultLogSegmentSize = 512 * 1024
-	defaultLogDirectory   = "./log"
+	defaultLogSegmentSize  = 512 * 1024
+	defaultLogDirectory    = "./log"
+	defaultLogManifestPath = "./log/manifest.json"
 
 	defaultMaxKeySize   = 1024
 	defaultMaxValueSize = 128 * 1024
-
-	defaultCachePartitions               = 64
-	defaultCachePartitionInitialCapacity = 16 * 1024
 )
 
 func main() {
-	observability.SetLoggingLevel(zerolog.InfoLevel)
+	otel.SetLoggingLevel(zerolog.InfoLevel)
 
-	cacheOptions := cache.Options{
-		Partitions:      defaultCachePartitions,
-		InitialCapacity: defaultCachePartitionInitialCapacity,
-	}
-	partitionedCache := cache.NewPartitionedCache(cacheOptions)
+	store := memstore.New()
 
 	logStreamOptions := storage.LogOptions{
-		SegmentSize:   defaultLogSegmentSize,
+		ManifestPath:  defaultLogManifestPath,
 		LogsDirectory: defaultLogDirectory,
+		SegmentSize:   defaultLogSegmentSize,
 	}
 	logStream, _ := storage.NewLog(logStreamOptions)
 
@@ -54,7 +50,7 @@ func main() {
 	}
 
 	defer closeWal(writeAheadLog)
-	restoreCacheState(partitionedCache, writeAheadLog)
+	restoreCacheState(store, writeAheadLog)
 
 	kvOptions := KeyValueStoreOptions{
 		Validation: ValidationOptions{
@@ -63,8 +59,25 @@ func main() {
 		},
 	}
 
-	kvStore := NewKeyValueStore(partitionedCache, writeAheadLog, kvOptions)
-	_, _ = kvStore.Get("empty")
+	kvStore := NewKeyValueStore(store, writeAheadLog, kvOptions)
+
+	log.Info().Msg("server: starting writes")
+	var wg sync.WaitGroup
+
+	for i := 1; i <= 100; i++ {
+		wg.Go(func() {
+			worker(i, kvStore)
+		})
+	}
+
+	wg.Wait()
+	log.Info().Msg("server: finished writes")
+}
+
+func worker(index int, kvStore *KeyValueStore) {
+	//key := fmt.Sprintf("key-1")
+	//value := []byte("value")
+	//_ = kvStore.Set(key, value)
 }
 
 func closeWal(wal *wal.WriteAheadLog) {
@@ -77,28 +90,27 @@ func closeWal(wal *wal.WriteAheadLog) {
 	}
 }
 
-func restoreCacheState(cache *cache.PartitionedCache, wal *wal.WriteAheadLog) {
+func restoreCacheState(cache *memstore.MemStore, wal *wal.WriteAheadLog) {
 	log.Info().
 		Msg("server: replaying WAL.")
 
 	replayCount := 0
-	var replayErr error
 
-	replayFunc := func(record data.Record) {
-
-		if record.Kind() == data.Delete {
-			replayErr = cache.Delete(string(record.Key()))
-		} else {
-			replayErr = cache.Set(string(record.Key()), record.Value())
-		}
-
-		if replayErr != nil {
-			log.Fatal().
-				Err(replayErr).
-				Msg("server: failed to replay WAL")
-		}
-
-		replayCount++
+	replayFunc := func(r record.Record) {
+		//
+		//if r.Kind == record.Tombstone {
+		//	replayErr = memstore.Delete(string(r.Key), r.TxID)
+		//} else {
+		//	replayErr = memstore.Set(string(r.Key), r.Value, r.TxID)
+		//}
+		//
+		//if replayErr != nil {
+		//	log.Fatal().
+		//		Err(replayErr).
+		//		Msg("server: failed to replay WAL")
+		//}
+		//
+		//replayCount++
 	}
 
 	if err := wal.Replay(replayFunc); err != nil {

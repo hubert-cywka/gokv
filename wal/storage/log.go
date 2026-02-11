@@ -11,24 +11,26 @@ import (
 const initialSegmentsBufferSize = 16
 
 type LogOptions struct {
+	ManifestPath  string
 	LogsDirectory string
 	SegmentSize   int64
 }
 
 type Log struct {
-	options            LogOptions
-	segments           []*Segment
-	activeSegmentIndex int
+	options             LogOptions
+	manifest            *Manifest
+	segments            []*Segment
+	activeSegmentOffset uint64
 }
 
 func NewLog(options LogOptions) (*Log, error) {
 	c := &Log{
-		options:            options,
-		segments:           make([]*Segment, initialSegmentsBufferSize),
-		activeSegmentIndex: 0,
+		options:             options,
+		segments:            make([]*Segment, initialSegmentsBufferSize),
+		activeSegmentOffset: 0,
 	}
 
-	if err := createDirectory(options.LogsDirectory); err != nil {
+	if err := ensureDirectoryExists(options.LogsDirectory); err != nil {
 		return nil, err
 	}
 
@@ -37,20 +39,20 @@ func NewLog(options LogOptions) (*Log, error) {
 }
 
 func (l *Log) Write(p []byte) (n int, err error) {
+	var space int64
+	var written int
+
 	for len(p) > 0 {
-		space, err := l.segment().Space()
-		if err != nil {
+		if space, err = l.segment().Space(); err != nil {
 			return n, err
 		}
 
 		if space <= 0 {
-			if err := l.loadSegment(l.activeSegmentIndex + 1); err != nil {
+			if err = l.loadSegment(l.activeSegmentOffset + 1); err != nil {
 				return n, err
 			}
 
-			space, err = l.segment().Space()
-
-			if err != nil {
+			if space, err = l.segment().Space(); err != nil {
 				return n, err
 			}
 		}
@@ -60,14 +62,14 @@ func (l *Log) Write(p []byte) (n int, err error) {
 			toWrite = int(space)
 		}
 
-		written, err := l.segment().Write(p[:toWrite])
-		if err != nil {
+		if written, err = l.segment().Write(p[:toWrite]); err != nil {
 			return n, err
 		}
 
 		n += written
 		p = p[written:]
 	}
+
 	return n, nil
 }
 
@@ -78,12 +80,11 @@ func (l *Log) Read(p []byte) (n int, err error) {
 		p = p[read:]
 
 		if readErr == io.EOF {
-
 			if !l.hasNextSegment() {
 				return n, io.EOF
 			}
 
-			if err := l.loadSegment(l.activeSegmentIndex + 1); err != nil {
+			if err = l.loadSegment(l.activeSegmentOffset + 1); err != nil {
 				return n, err
 			}
 
@@ -113,11 +114,19 @@ func (l *Log) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (l *Log) Close() error {
-	if l.segment() == nil {
-		return nil
+	if l.segment() != nil {
+		err := l.segment().Close()
+
+		if err != nil {
+			return err
+		}
 	}
 
-	return l.segment().Close()
+	if l.manifest != nil {
+		return l.manifest.Close()
+	}
+
+	return nil
 }
 
 func (l *Log) Sync() error {
@@ -132,22 +141,22 @@ func (l *Log) grow() {
 	l.segments = newSegments
 
 	log.Info().
-		Int("newCapacity", newCapacity).
+		Int("capacity", newCapacity).
 		Msg("log: grow completed.")
 }
 
 func (l *Log) segment() *Segment {
-	return l.segments[l.activeSegmentIndex]
+	return l.segments[l.activeSegmentOffset]
 }
 
 func (l *Log) hasNextSegment() bool {
-	nextIndex := l.activeSegmentIndex + 1
+	nextOffset := l.activeSegmentOffset + 1
 
-	if len(l.segments) <= nextIndex {
+	if uint64(len(l.segments)) <= nextOffset {
 		return false
 	}
 
-	if l.segments[nextIndex] == nil {
+	if l.segments[nextOffset] == nil {
 		return false
 	}
 
@@ -158,10 +167,14 @@ func (l *Log) bootstrap() error {
 	log.Debug().
 		Msg("log: bootstrapping.")
 
-	for {
-		nextIndex := l.activeSegmentIndex + 1
+	if err := l.loadManifest(); err != nil {
+		return err
+	}
 
-		if err := l.loadSegment(nextIndex); err != nil {
+	nextOffset := l.activeSegmentOffset
+
+	for {
+		if err := l.loadSegment(nextOffset); err != nil {
 			return err
 		}
 
@@ -171,21 +184,34 @@ func (l *Log) bootstrap() error {
 			return err
 		}
 
+		sequenceNumber := l.findSegmentSequenceNumber(nextOffset)
+
 		log.Info().
-			Int("activeSegmentIndex", nextIndex).
+			Uint64("seq", sequenceNumber).
 			Msg("log: loaded next segment.")
 
 		if space > 0 {
 			log.Info().
-				Int("activeSegmentIndex", nextIndex).
+				Uint64("seq", sequenceNumber).
 				Msg("log: found active segment.")
 
 			return nil
 		}
+
+		nextOffset++
 	}
 }
 
-func (l *Log) loadSegment(index int) error {
+func (l *Log) loadManifest() error {
+	if l.manifest != nil {
+		return nil
+	}
+
+	l.manifest = NewManifest(l.options.ManifestPath)
+	return l.manifest.Open()
+}
+
+func (l *Log) loadSegment(offset uint64) error {
 	if l.segment() != nil {
 		err := l.segment().Close()
 
@@ -194,23 +220,28 @@ func (l *Log) loadSegment(index int) error {
 		}
 	}
 
-	l.activeSegmentIndex = index
+	l.activeSegmentOffset = offset
 
-	for cap(l.segments) <= index {
+	for uint64(cap(l.segments)) <= offset {
 		l.grow()
 	}
 
-	if l.segments[index] != nil {
+	if l.segments[offset] != nil {
 		return nil
 	}
 
-	path := l.getSegmentPath(index)
-	l.segments[index] = NewSegment(path, l.options.SegmentSize)
+	path := l.getSegmentPath(offset)
+	l.segments[offset] = NewSegment(path, l.options.SegmentSize)
 
 	return nil
 }
 
-func (l *Log) getSegmentPath(index int) string {
-	filename := fmt.Sprintf("wal-%09d.log", index)
+func (l *Log) getSegmentPath(offset uint64) string {
+	seqNumber := l.findSegmentSequenceNumber(offset)
+	filename := fmt.Sprintf("wal-%09d.log", seqNumber)
 	return filepath.Join(l.options.LogsDirectory, filename)
+}
+
+func (l *Log) findSegmentSequenceNumber(offset uint64) uint64 {
+	return l.manifest.Content.logStart + offset
 }
