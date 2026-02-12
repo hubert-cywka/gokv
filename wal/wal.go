@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TODO: Support transaction commit
+
 // TODO: Partitioned WAL
 // - Quick append, slower replay.
 

@@ -202,7 +202,7 @@ func TestMemStore_Delete(t *testing.T) {
 
 		entries := introspect(storage)
 		got := findEntry(entries, key)
-		test.AssertEqual(t, got.XMax.Load(), txA.ID)
+		test.AssertEqual(t, got.XMax(), txA.ID)
 	})
 
 	t.Run("it returns error when key does not exist", func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestMemStore_Vacuum(t *testing.T) {
 		got := findEntry(entries, key)
 
 		assertNotPruned(t, got)
-		assertPruned(t, got.Prev.Load())
+		assertPruned(t, got.Prev())
 	})
 
 	t.Run("it freezes latest version when no transactions are active", func(t *testing.T) {
@@ -353,7 +353,7 @@ func TestMemStore_Vacuum(t *testing.T) {
 		got := findEntry(entries, key)
 
 		assertNotPruned(t, got)
-		assertPruned(t, got.Prev.Load())
+		assertPruned(t, got.Prev())
 	})
 
 	t.Run("it freezes version that is visible by all transactions", func(t *testing.T) {
@@ -386,7 +386,7 @@ func TestMemStore_Vacuum(t *testing.T) {
 		got := findEntry(entries, key)
 
 		assertNotPruned(t, got)
-		assertNotPruned(t, got.Prev.Load())
+		assertNotPruned(t, got.Prev())
 	})
 
 	t.Run("it does not freeze versions that are not visible by all transactions", func(t *testing.T) {
@@ -433,7 +433,7 @@ func TestMemStore_Vacuum(t *testing.T) {
 		got := findEntry(entries, key)
 
 		assertNotPruned(t, got)
-		assertPruned(t, got.Prev.Load())
+		assertPruned(t, got.Prev())
 	})
 
 	t.Run("it does not remove uncommitted versions", func(t *testing.T) {
@@ -478,17 +478,131 @@ func TestMemStore_Vacuum(t *testing.T) {
 		got := findEntry(entries, key)
 
 		assertNotPruned(t, got)
-		assertNotPruned(t, got.Prev.Load())
+		assertNotPruned(t, got.Prev())
 		_ = txLive.Commit()
 	})
 }
 
-func TestMemStore(t *testing.T) {
-	t.Run("it ensures snapshot isolation", func(t *testing.T) {
-		tm := tx.NewTransactionManager()
-		storage := &sync.Map{}
-		ms := New(storage)
+func TestMemStore_Rollback(t *testing.T) {
+	tm := tx.NewTransactionManager()
+	storage := &sync.Map{}
+	ms := New(storage)
 
+	givenEntryCommitted := func(key string, value []byte) {
+		setupTx := tm.Begin()
+		_ = ms.Set(key, value, setupTx)
+		_ = setupTx.Commit()
+	}
+
+	t.Run("it rollbacks inserts when transaction is aborted", func(t *testing.T) {
+		key := "rollbacks-inserts"
+		givenEntryCommitted(key, []byte("100"))
+
+		txA := tm.Begin()
+		err := ms.Set(key, []byte("200"), txA)
+		test.AssertNoError(t, err)
+
+		txA.Abort()
+
+		txB := tm.Begin()
+		got, err := ms.Get(key, txB)
+		_ = txB.Commit()
+
+		test.AssertNoError(t, err)
+		test.AssertBytesEqual(t, got, []byte("100"))
+	})
+
+	t.Run("it rollbacks deletes when transaction is aborted", func(t *testing.T) {
+		key := "rollbacks-deletes"
+		givenEntryCommitted(key, []byte("100"))
+
+		txA := tm.Begin()
+		err := ms.Delete(key, txA)
+		test.AssertNoError(t, err)
+
+		txA.Abort()
+
+		txB := tm.Begin()
+		got, err := ms.Get(key, txB)
+		_ = txB.Commit()
+
+		test.AssertNoError(t, err)
+		test.AssertBytesEqual(t, got, []byte("100"))
+	})
+
+	t.Run("it rollbacks all changes when transaction is aborted", func(t *testing.T) {
+		key1 := "rollbacks-all-changes-1"
+		value1 := []byte("100")
+		key2 := "rollbacks-all-changes-2"
+		value2 := []byte("200")
+		key3 := "rollbacks-all-changes-3"
+		value3 := []byte("300")
+		givenEntryCommitted(key3, value3)
+
+		txA := tm.Begin()
+
+		err := ms.Set(key1, value1, txA)
+		test.AssertNoError(t, err)
+		err = ms.Set(key1, value1, txA)
+		test.AssertNoError(t, err)
+		err = ms.Set(key1, value1, txA)
+		test.AssertNoError(t, err)
+		err = ms.Set(key2, value2, txA)
+		test.AssertNoError(t, err)
+		err = ms.Delete(key3, txA)
+		test.AssertNoError(t, err)
+
+		txA.Abort()
+
+		txB := tm.Begin()
+		_, err1 := ms.Get(key1, txB)
+		_, err2 := ms.Get(key2, txB)
+		got3, err3 := ms.Get(key3, txB)
+		_ = txB.Commit()
+
+		test.AssertError(t, err1, KeyNotFoundError)
+		test.AssertError(t, err2, KeyNotFoundError)
+		test.AssertNoError(t, err3)
+		test.AssertBytesEqual(t, got3, value3)
+	})
+}
+
+func TestMemStore(t *testing.T) {
+	tm := tx.NewTransactionManager()
+	storage := &sync.Map{}
+	ms := New(storage)
+
+	t.Run("it allows set -> set in the same transaction", func(t *testing.T) {
+		key := "set-to-set"
+		value := []byte("100")
+
+		txA := tm.Begin()
+
+		err := ms.Set(key, value, txA)
+		test.AssertNoError(t, err)
+		err = ms.Set(key, value, txA)
+		test.AssertNoError(t, err)
+
+		_ = txA.Commit()
+	})
+
+	t.Run("it allows set -> delete -> set in the same transaction", func(t *testing.T) {
+		key := "set-to-delete-to-set"
+		value := []byte("100")
+
+		txA := tm.Begin()
+
+		err := ms.Set(key, value, txA)
+		test.AssertNoError(t, err)
+		err = ms.Delete(key, txA)
+		test.AssertNoError(t, err)
+		err = ms.Set(key, value, txA)
+		test.AssertNoError(t, err)
+
+		_ = txA.Commit()
+	})
+
+	t.Run("it ensures snapshot isolation", func(t *testing.T) {
 		key := "versioned_key"
 
 		v1 := []byte("v1")
@@ -519,10 +633,6 @@ func TestMemStore(t *testing.T) {
 	})
 
 	t.Run("it avoids data corruption in high concurrency scenario", func(t *testing.T) {
-		tm := tx.NewTransactionManager()
-		storage := &sync.Map{}
-		ms := New(storage)
-
 		key := "global_counter"
 
 		setupTx := tm.Begin()
@@ -575,13 +685,13 @@ func TestMemStore(t *testing.T) {
 func assertFrozen(t *testing.T, e *entry.Entry) {
 	t.Helper()
 
-	test.AssertEqual(t, e.XMin.Load(), tx.FROZEN_TX_ID)
+	test.AssertEqual(t, e.XMin(), tx.FROZEN_TX_ID)
 }
 
 func assertNotFrozen(t *testing.T, e *entry.Entry) {
 	t.Helper()
 
-	test.AssertNotEqual(t, e.XMin.Load(), tx.FROZEN_TX_ID)
+	test.AssertNotEqual(t, e.XMin(), tx.FROZEN_TX_ID)
 }
 
 func assertNotPruned(t *testing.T, e *entry.Entry) {

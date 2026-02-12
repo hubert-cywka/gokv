@@ -73,6 +73,7 @@ func (s *KeyValueStore) Set(key string, value []byte, transaction *tx.Transactio
 	}
 
 	if err := s.store.Set(key, value, transaction); err != nil {
+		transaction.Abort()
 		return err
 	}
 
@@ -90,6 +91,7 @@ func (s *KeyValueStore) Delete(key string, transaction *tx.Transaction) error {
 	}
 
 	if err := s.store.Delete(key, transaction); err != nil {
+		transaction.Abort()
 		return err
 	}
 

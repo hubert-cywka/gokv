@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 )
 
-// TODO: Handle same key updates in the same transaction
-
 type MemStore struct {
 	storage *sync.Map
 }
@@ -29,8 +27,8 @@ func (s *MemStore) Get(key string, t *tx.Transaction) ([]byte, error) {
 	curr := val.(*atomic.Pointer[entry.Entry]).Load()
 
 	for curr != nil {
-		xMin := curr.XMin.Load()
-		xMax := curr.XMax.Load()
+		xMin := curr.XMin()
+		xMax := curr.XMax()
 
 		if t.CanSee(xMin, xMax) {
 			if curr.Value == nil {
@@ -40,7 +38,7 @@ func (s *MemStore) Get(key string, t *tx.Transaction) ([]byte, error) {
 			return curr.Value, nil
 		}
 
-		curr = curr.Prev.Load()
+		curr = curr.Prev()
 	}
 
 	return nil, KeyNotFoundError
@@ -53,29 +51,32 @@ func (s *MemStore) Set(key string, value []byte, t *tx.Transaction) error {
 	for {
 		latest := ptr.Load()
 
-		if latest != nil {
-			if latest.XMax.Load() != tx.FROZEN_TX_ID {
+		// Allow update if entry was deleted by this transaction
+		if latest != nil && latest.XMax() != t.ID {
+			if latest.XMax() != tx.FROZEN_TX_ID {
 				return SerializationError
 			}
 
-			if !t.CanSee(latest.XMin.Load(), tx.FROZEN_TX_ID) {
+			if !t.CanSee(latest.XMin(), tx.FROZEN_TX_ID) {
 				return SerializationError
 			}
 
-			if !latest.XMax.CompareAndSwap(tx.FROZEN_TX_ID, t.ID) {
+			if !latest.CompareAndSetXMax(tx.FROZEN_TX_ID, t.ID) {
 				return SerializationError
 			}
 		}
 
 		newEntry := entry.New(key, value, t.ID)
-		newEntry.Prev.Store(latest)
+		newEntry.SetPrev(latest)
 
 		if ptr.CompareAndSwap(latest, &newEntry) {
+			t.Track(latest)
+			t.Track(&newEntry)
 			return nil
 		}
 
 		if latest != nil {
-			latest.XMax.Store(tx.FROZEN_TX_ID)
+			latest.SetXMax(tx.FROZEN_TX_ID)
 		}
 	}
 }
@@ -95,18 +96,19 @@ func (s *MemStore) Delete(key string, t *tx.Transaction) error {
 			return KeyNotFoundError
 		}
 
-		if latest.XMax.Load() != tx.FROZEN_TX_ID {
+		if latest.XMax() != tx.FROZEN_TX_ID {
 			return SerializationError
 		}
 
-		if !t.CanSee(latest.XMin.Load(), tx.FROZEN_TX_ID) {
+		if !t.CanSee(latest.XMin(), tx.FROZEN_TX_ID) {
 			return SerializationError
 		}
 
-		if !latest.XMax.CompareAndSwap(tx.FROZEN_TX_ID, t.ID) {
+		if !latest.CompareAndSetXMax(tx.FROZEN_TX_ID, t.ID) {
 			return SerializationError
 		}
 
+		t.Track(latest)
 		return nil
 	}
 }
@@ -122,33 +124,33 @@ func (s *MemStore) Vacuum(tm *tx.TransactionManager) {
 			return true
 		}
 
-		xMax := head.XMax.Load()
+		xMax := head.XMax()
 		if xMax != tx.FROZEN_TX_ID && xMax != horizon && tx.Precedes(xMax, horizon) {
 			ptr.CompareAndSwap(head, nil)
 			return true
 		}
 
-		xMin := head.XMin.Load()
+		xMin := head.XMin()
 		if xMin != tx.FROZEN_TX_ID && xMin != horizon && tx.Precedes(xMin, horizon) {
-			head.XMin.Store(tx.FROZEN_TX_ID)
+			head.SetXMin(tx.FROZEN_TX_ID)
 		}
 
 		curr := head
 		for {
-			next := curr.Prev.Load()
+			next := curr.Prev()
 			if next == nil {
 				break
 			}
 
-			xMax = next.XMax.Load()
+			xMax = next.XMax()
 			if xMax != tx.FROZEN_TX_ID && xMax != horizon && tx.Precedes(xMax, horizon) {
-				curr.Prev.Store(nil)
+				curr.SetPrev(nil)
 				break
 			}
 
-			xMin = next.XMin.Load()
+			xMin = next.XMin()
 			if xMin != tx.FROZEN_TX_ID && xMin != horizon && tx.Precedes(xMin, horizon) {
-				next.XMin.Store(tx.FROZEN_TX_ID)
+				next.SetXMin(tx.FROZEN_TX_ID)
 			}
 
 			curr = next

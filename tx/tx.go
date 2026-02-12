@@ -1,24 +1,28 @@
 package tx
 
 import (
+	"kv/memstore/entry"
 	"sync"
-	"sync/atomic"
 )
 
 const (
-	FROZEN_TX_ID        = uint64(0)
-	HALF_SPACE   uint64 = 1 << 63
+	FROZEN_TX_ID = uint64(0)
+	HALF_SPACE   = uint64(1 << 63)
 )
 
 type Transaction struct {
 	ID uint64
 
+	writes   []*entry.Entry
 	manager  *TransactionManager
 	snapshot Snapshot
 
-	committed atomic.Bool
-	aborted   atomic.Bool
-	once      sync.Once
+	once sync.Once
+}
+
+func (tx *Transaction) Track(x *entry.Entry) {
+	// TODO: Race condition
+	tx.writes = append(tx.writes, x)
 }
 
 func (tx *Transaction) Commit() error {
@@ -26,10 +30,6 @@ func (tx *Transaction) Commit() error {
 
 	tx.once.Do(func() {
 		err = tx.manager.commit(tx.ID)
-
-		if err == nil {
-			tx.committed.Store(true)
-		}
 	})
 
 	return err
@@ -37,13 +37,26 @@ func (tx *Transaction) Commit() error {
 
 func (tx *Transaction) Abort() {
 	tx.once.Do(func() {
-		tx.manager.abort(tx.ID)
-		tx.aborted.Store(true)
-	})
-}
+		for i := len(tx.writes) - 1; i >= 0; i-- {
+			e := tx.writes[i]
 
-func (tx *Transaction) Committed() bool {
-	return tx.committed.Load()
+			if e == nil {
+				continue
+			}
+
+			if e.XMin() == tx.ID {
+				e.SetXMax(tx.ID)
+				continue
+			}
+
+			if e.XMax() == tx.ID {
+				e.SetXMax(FROZEN_TX_ID)
+				continue
+			}
+		}
+
+		tx.manager.abort(tx.ID)
+	})
 }
 
 func (tx *Transaction) CanSee(xMin, xMax uint64) bool {
