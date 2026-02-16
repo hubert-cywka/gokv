@@ -11,7 +11,6 @@ import (
 	"kv/observability"
 	"kv/storage"
 	"os"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -56,7 +55,7 @@ func run(cfg Config) (err error) {
 
 	// TODO: "Smart" autovacuum - do not run it if there is no need to.
 	vacuumer := engine.NewVacuumer(versionMap, writeAheadLog)
-	vacuumer.RunOnInterval(txManager, 120*time.Second, ctx)
+	vacuumer.RunOnInterval(txManager, cfg.VacuumInterval, ctx)
 
 	return startRepl(txManager, kvStore)
 }
