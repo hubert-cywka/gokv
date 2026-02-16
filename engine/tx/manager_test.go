@@ -2,7 +2,7 @@ package tx
 
 import (
 	"kv/engine/internal/mocks"
-	"kv/storage"
+	storagemocks "kv/storage/mocks"
 	"kv/test"
 	"testing"
 )
@@ -10,7 +10,7 @@ import (
 func TestTransactionManager_Begin(t *testing.T) {
 	reservedIDsPerBatch := 5
 	maxActiveTx := 5
-	file := storage.NewMockFile()
+	file := storagemocks.NewFile()
 	manifest := NewManifest(file)
 	appender := mocks.NewAppender()
 

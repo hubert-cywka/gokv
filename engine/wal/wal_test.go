@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"kv/engine/wal/record"
 	"kv/observability"
-	"kv/storage"
+	"kv/storage/mocks"
 	"kv/test"
 	"strconv"
 	"sync"
@@ -23,7 +23,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 	}
 
 	t.Run("it commits record after the wait time", func(t *testing.T) {
-		file := storage.NewMockFile()
+		file := mocks.NewFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 		errChan := make(chan error)
 
@@ -40,7 +40,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 	})
 
 	t.Run("it batches commits", func(t *testing.T) {
-		file := storage.NewMockFile()
+		file := mocks.NewFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		count := 100
@@ -67,7 +67,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 	})
 
 	t.Run("it returns error if already closed", func(t *testing.T) {
-		file := storage.NewMockFile()
+		file := mocks.NewFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		_ = wal.Close()
@@ -85,7 +85,7 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 	}
 
 	t.Run("it reads all commited records", func(t *testing.T) {
-		file := storage.NewMockFile()
+		file := mocks.NewFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		record1 := record.NewValue("key1", []byte("value1"), 1)
@@ -107,7 +107,7 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 	})
 
 	t.Run("it replays records in the same order", func(t *testing.T) {
-		file := storage.NewMockFile()
+		file := mocks.NewFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		_ = wal.Append(record.NewValue("key1", []byte("value1"), 1))
@@ -140,7 +140,7 @@ func TestWriteAheadLog_Close(t *testing.T) {
 	}
 
 	t.Run("it waits until pending batch is commited", func(t *testing.T) {
-		file := storage.NewMockFile()
+		file := mocks.NewFile()
 		wal, _ := NewWriteAheadLog(opts, file)
 
 		value := []byte("value")
@@ -169,7 +169,7 @@ func awaitSync(t *testing.T, channel chan error, timeout time.Duration) {
 	}
 }
 
-func assertFileContains(t *testing.T, file *storage.MockFile, value []byte) {
+func assertFileContains(t *testing.T, file *mocks.File, value []byte) {
 	t.Helper()
 
 	if !bytes.Contains(file.Data, value) {
@@ -177,7 +177,7 @@ func assertFileContains(t *testing.T, file *storage.MockFile, value []byte) {
 	}
 }
 
-func assertSyncedTimes(t *testing.T, file *storage.MockFile, times int) {
+func assertSyncedTimes(t *testing.T, file *mocks.File, times int) {
 	t.Helper()
 
 	if file.SyncCalls != times {
@@ -185,7 +185,7 @@ func assertSyncedTimes(t *testing.T, file *storage.MockFile, times int) {
 	}
 }
 
-func assertNotSynced(t *testing.T, file *storage.MockFile) {
+func assertNotSynced(t *testing.T, file *mocks.File) {
 	t.Helper()
 
 	if file.SyncCalls != 0 {

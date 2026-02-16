@@ -5,7 +5,7 @@ import (
 	"kv/engine/mvcc"
 	"kv/engine/tx"
 	"kv/engine/wal/record"
-	"kv/storage"
+	storagemocks "kv/storage/mocks"
 	"kv/test"
 	"testing"
 )
@@ -258,7 +258,7 @@ func beginTransaction(t *testing.T, txManager *tx.Manager) *tx.Transaction {
 }
 
 func setupTxManager() *tx.Manager {
-	file := storage.NewMockFile()
+	file := storagemocks.NewFile()
 	manifest := tx.NewManifest(file)
 	writeAheadLog := mocks.NewAppender()
 

@@ -3,7 +3,7 @@ package tx
 import (
 	"kv/engine/internal/mocks"
 	"kv/engine/wal/record"
-	"kv/storage"
+	storagemocks "kv/storage/mocks"
 	"kv/test"
 	"testing"
 )
@@ -207,7 +207,7 @@ func TestTransaction_CanSee(t *testing.T) {
 }
 
 func setup() (*Manager, *mocks.MockAppender) {
-	file := storage.NewMockFile()
+	file := storagemocks.NewFile()
 	manifest := NewManifest(file)
 	appender := mocks.NewAppender()
 

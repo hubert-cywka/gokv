@@ -6,20 +6,22 @@ import (
 	"kv/engine/wal"
 	"kv/engine/wal/record"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 )
 
-func NewRecoveryManager(versionMap *mvcc.VersionMap, replayer wal.Replayer) *RecoveryManager {
+func NewRecoveryManager(versionMap *mvcc.VersionMap, walReplayer wal.Replayer) *RecoveryManager {
 	return &RecoveryManager{
-		versionMap: versionMap,
-		replayer:   replayer,
+		versionMap:  versionMap,
+		walReplayer: walReplayer,
 	}
 }
 
 type RecoveryManager struct {
-	versionMap *mvcc.VersionMap
-	replayer   wal.Replayer
-	committed  map[uint64]struct{}
-	lock       sync.Mutex
+	versionMap  *mvcc.VersionMap
+	walReplayer wal.Replayer
+	committed   map[uint64]struct{}
+	lock        sync.Mutex
 }
 
 func (rm *RecoveryManager) Run() error {
@@ -28,11 +30,11 @@ func (rm *RecoveryManager) Run() error {
 
 	rm.committed = make(map[uint64]struct{})
 
-	if err := rm.replayer.Replay(rm.loadCommittedTransactions); err != nil {
+	if err := rm.walReplayer.Replay(rm.loadCommittedTransactions); err != nil {
 		return err
 	}
 
-	if err := rm.replayer.Replay(rm.applyCommittedRecords); err != nil {
+	if err := rm.walReplayer.Replay(rm.applyCommittedRecords); err != nil {
 		return err
 	}
 
@@ -40,28 +42,37 @@ func (rm *RecoveryManager) Run() error {
 }
 
 func (rm *RecoveryManager) applyCommittedRecords(r record.Record) {
-	_, ok := rm.committed[r.TxID]
-
-	if !ok {
+	if _, ok := rm.committed[r.TxID]; !ok {
 		return
 	}
 
-	if r.Kind == record.Tombstone {
-		rm.versionMap.Remove(string(r.Key))
+	key := string(r.Key)
+
+	switch r.Kind {
+	case record.Tombstone:
+		rm.versionMap.Remove(key)
 		return
+	case record.Value:
+		rm.applyValueRecord(key, r)
+	case record.Freeze:
+		rm.applyFreezeRecord(key)
+	default:
+		log.Error().Uint8("kind", r.Kind).Msg("recovery: unknown committed record kind")
 	}
+}
 
-	if r.Kind == record.Value {
-		rm.versionMap.Remove(string(r.Key))
-		chain := rm.versionMap.GetOrCreateChain(string(r.Key))
-		newVersion := mvcc.NewVersion(string(r.Key), r.Value, tx.ID(r.TxID))
-		chain.CompareHeadAndSwap(chain.Head(), newVersion)
-	}
+func (rm *RecoveryManager) applyValueRecord(key string, r record.Record) {
+	chain := rm.versionMap.GetOrCreateChain(key)
+	newVersion := mvcc.NewVersion(key, r.Value, tx.ID(r.TxID))
+	chain.CompareHeadAndSwap(chain.Head(), newVersion)
+}
 
-	if r.Kind == record.Freeze {
-		rm.versionMap.Remove(string(r.Key))
-		chain, _ := rm.versionMap.GetChain(string(r.Key))
-		chain.Head().Freeze()
+func (rm *RecoveryManager) applyFreezeRecord(key string) {
+	rm.versionMap.Remove(key)
+	chain, _ := rm.versionMap.GetChain(key)
+
+	if head := chain.Head(); head != nil {
+		head.Freeze()
 	}
 }
 

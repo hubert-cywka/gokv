@@ -16,6 +16,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TODO: Clean up this mess and set up a proper server instead of a demo
+
 type Config struct {
 	LogDir                string
 	LogManifestPath       string
@@ -54,7 +56,6 @@ func main() {
 	}
 }
 
-// TODO: Clean up this mess and set up a proper server instead of a demo
 func run(cfg Config) error {
 	fm := storage.NewManager()
 

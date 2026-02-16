@@ -1,11 +1,11 @@
-package storage
+package mocks
 
 import (
 	"errors"
 	"io"
 )
 
-type MockFile struct {
+type File struct {
 	Data      []byte
 	SyncCalls int
 
@@ -13,13 +13,13 @@ type MockFile struct {
 	closed bool
 }
 
-func NewMockFile() *MockFile {
-	return &MockFile{
+func NewFile() *File {
+	return &File{
 		Data: make([]byte, 0, 1024),
 	}
 }
 
-func (m *MockFile) Write(p []byte) (n int, err error) {
+func (m *File) Write(p []byte) (n int, err error) {
 	if m.closed {
 		return 0, errors.New("file closed")
 	}
@@ -44,7 +44,7 @@ func (m *MockFile) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (m *MockFile) Read(p []byte) (n int, err error) {
+func (m *File) Read(p []byte) (n int, err error) {
 	if m.closed {
 		return 0, errors.New("file closed")
 	}
@@ -58,7 +58,7 @@ func (m *MockFile) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (m *MockFile) Seek(offset int64, whence int) (int64, error) {
+func (m *File) Seek(offset int64, whence int) (int64, error) {
 	if m.closed {
 		return 0, errors.New("file closed")
 	}
@@ -83,12 +83,12 @@ func (m *MockFile) Seek(offset int64, whence int) (int64, error) {
 	return m.offset, nil
 }
 
-func (m *MockFile) Sync() error {
+func (m *File) Sync() error {
 	m.SyncCalls++
 	return nil
 }
 
-func (m *MockFile) Close() error {
+func (m *File) Close() error {
 	m.closed = true
 	return nil
 }

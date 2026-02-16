@@ -9,10 +9,7 @@ import (
 	"time"
 )
 
-// TODO: Compaction
-// 1. Manifest file with metadata (e.g., 1st segment path).
-// 2. Temporary storage.
-// 3. Clean up afterward.
+// TODO: Snapshotting
 
 type batchCommitContext struct {
 	done chan struct{}
