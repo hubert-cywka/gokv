@@ -9,4 +9,7 @@ const (
 	ABORT       = "ABORT"
 	COMMIT      = "COMMIT"
 	BEGIN       = "BEGIN"
+
+	EXIT = "EXIT"
+	HELP = "HELP"
 )

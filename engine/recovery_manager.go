@@ -51,11 +51,12 @@ func (rm *RecoveryManager) applyCommittedRecords(r record.Record) {
 	switch r.Kind {
 	case record.Tombstone:
 		rm.versionMap.Remove(key)
-		return
 	case record.Value:
 		rm.applyValueRecord(key, r)
 	case record.Freeze:
 		rm.applyFreezeRecord(key)
+	case record.Commit:
+		// skip
 	default:
 		log.Error().Uint8("kind", r.Kind).Msg("recovery: unknown committed record kind")
 	}

@@ -35,7 +35,7 @@ type Options struct {
 	WriterBufferSize    int
 }
 
-func NewWriteAheadLog(options Options, file storage.File) (*WriteAheadLog, error) {
+func NewWriteAheadLog(options Options, file storage.File) *WriteAheadLog {
 	bufferedWriter := bufio.NewWriterSize(file, options.WriterBufferSize)
 
 	return &WriteAheadLog{
@@ -44,7 +44,7 @@ func NewWriteAheadLog(options Options, file storage.File) (*WriteAheadLog, error
 		encoder: record.NewEncoder(bufferedWriter),
 		decoder: record.NewDecoder(file),
 		options: options,
-	}, nil
+	}
 }
 
 func (w *WriteAheadLog) Append(record *record.Record) error {

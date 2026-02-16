@@ -24,7 +24,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 
 	t.Run("it commits record after the wait time", func(t *testing.T) {
 		file := mocks.NewFile()
-		wal, _ := NewWriteAheadLog(opts, file)
+		wal := NewWriteAheadLog(opts, file)
 		errChan := make(chan error)
 
 		value := []byte("value")
@@ -41,7 +41,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 
 	t.Run("it batches commits", func(t *testing.T) {
 		file := mocks.NewFile()
-		wal, _ := NewWriteAheadLog(opts, file)
+		wal := NewWriteAheadLog(opts, file)
 
 		count := 100
 		var wg sync.WaitGroup
@@ -68,7 +68,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 
 	t.Run("it returns error if already closed", func(t *testing.T) {
 		file := mocks.NewFile()
-		wal, _ := NewWriteAheadLog(opts, file)
+		wal := NewWriteAheadLog(opts, file)
 
 		_ = wal.Close()
 		err := wal.Append(record.NewValue("key", []byte("value"), 1))
@@ -86,7 +86,7 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 
 	t.Run("it reads all commited records", func(t *testing.T) {
 		file := mocks.NewFile()
-		wal, _ := NewWriteAheadLog(opts, file)
+		wal := NewWriteAheadLog(opts, file)
 
 		record1 := record.NewValue("key1", []byte("value1"), 1)
 		record2 := record.NewValue("key2", []byte("value2"), 1)
@@ -108,7 +108,7 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 
 	t.Run("it replays records in the same order", func(t *testing.T) {
 		file := mocks.NewFile()
-		wal, _ := NewWriteAheadLog(opts, file)
+		wal := NewWriteAheadLog(opts, file)
 
 		_ = wal.Append(record.NewValue("key1", []byte("value1"), 1))
 		_ = wal.Append(record.NewValue("key2", []byte("value2"), 1))
@@ -141,7 +141,7 @@ func TestWriteAheadLog_Close(t *testing.T) {
 
 	t.Run("it waits until pending batch is commited", func(t *testing.T) {
 		file := mocks.NewFile()
-		wal, _ := NewWriteAheadLog(opts, file)
+		wal := NewWriteAheadLog(opts, file)
 
 		value := []byte("value")
 

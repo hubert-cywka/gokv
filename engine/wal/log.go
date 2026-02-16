@@ -22,7 +22,7 @@ type Log struct {
 }
 
 func NewLog(manifest *Manifest, options LogOptions) (*Log, error) {
-	c := &Log{
+	l := &Log{
 		options:             options,
 		segments:            make([]*Segment, initialSegmentsBufferSize),
 		manifest:            manifest,
@@ -33,8 +33,8 @@ func NewLog(manifest *Manifest, options LogOptions) (*Log, error) {
 		return nil, err
 	}
 
-	err := c.bootstrap()
-	return c, err
+	err := l.loadMostRecentSegment()
+	return l, err
 }
 
 func (l *Log) Write(p []byte) (n int, err error) {
@@ -42,7 +42,7 @@ func (l *Log) Write(p []byte) (n int, err error) {
 	var written int
 
 	for len(p) > 0 {
-		if space, err = l.segment().Space(); err != nil {
+		if space, err = l.activeSegment().Space(); err != nil {
 			return n, err
 		}
 
@@ -51,7 +51,7 @@ func (l *Log) Write(p []byte) (n int, err error) {
 				return n, err
 			}
 
-			if space, err = l.segment().Space(); err != nil {
+			if space, err = l.activeSegment().Space(); err != nil {
 				return n, err
 			}
 		}
@@ -61,7 +61,7 @@ func (l *Log) Write(p []byte) (n int, err error) {
 			toWrite = int(space)
 		}
 
-		if written, err = l.segment().Write(p[:toWrite]); err != nil {
+		if written, err = l.activeSegment().Write(p[:toWrite]); err != nil {
 			return n, err
 		}
 
@@ -74,7 +74,7 @@ func (l *Log) Write(p []byte) (n int, err error) {
 
 func (l *Log) Read(p []byte) (n int, err error) {
 	for len(p) > 0 {
-		read, readErr := l.segment().Read(p)
+		read, readErr := l.activeSegment().Read(p)
 		n += read
 		p = p[read:]
 
@@ -109,12 +109,12 @@ func (l *Log) Seek(offset int64, whence int) (int64, error) {
 		return 0, nil
 	}
 
-	return l.segment().Seek(offset, whence)
+	return l.activeSegment().Seek(offset, whence)
 }
 
 func (l *Log) Close() error {
-	if l.segment() != nil {
-		err := l.segment().Close()
+	if l.activeSegment() != nil {
+		err := l.activeSegment().Close()
 
 		if err != nil {
 			return err
@@ -125,7 +125,7 @@ func (l *Log) Close() error {
 }
 
 func (l *Log) Sync() error {
-	return l.segment().Sync()
+	return l.activeSegment().Sync()
 }
 
 func (l *Log) grow() {
@@ -136,7 +136,7 @@ func (l *Log) grow() {
 	l.segments = newSegments
 }
 
-func (l *Log) segment() *Segment {
+func (l *Log) activeSegment() *Segment {
 	return l.segments[l.activeSegmentOffset]
 }
 
@@ -154,7 +154,7 @@ func (l *Log) hasNextSegment() bool {
 	return true
 }
 
-func (l *Log) bootstrap() error {
+func (l *Log) loadMostRecentSegment() error {
 	nextOffset := l.activeSegmentOffset
 
 	for {
@@ -162,7 +162,7 @@ func (l *Log) bootstrap() error {
 			return err
 		}
 
-		space, err := l.segment().Space()
+		space, err := l.activeSegment().Space()
 
 		if err != nil {
 			return err
@@ -177,8 +177,8 @@ func (l *Log) bootstrap() error {
 }
 
 func (l *Log) loadSegment(offset uint64) error {
-	if l.segment() != nil {
-		err := l.segment().Close()
+	if l.activeSegment() != nil {
+		err := l.activeSegment().Close()
 
 		if err != nil {
 			return err

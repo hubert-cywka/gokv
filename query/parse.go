@@ -27,10 +27,6 @@ func Parse(input string) (*Command, error) {
 		return nil, InvalidCommandError
 	}
 
-	for _, token := range tokens {
-		println(token)
-	}
-
 	switch strings.ToUpper(tokens[0]) {
 	case SET:
 		if len(tokens) != 3 {
@@ -80,6 +76,24 @@ func Parse(input string) (*Command, error) {
 		return &Command{
 			Key:  key,
 			Type: CommandDelete,
+		}, nil
+
+	case EXIT:
+		if len(tokens) != 1 {
+			return nil, InvalidNumberOfTokens
+		}
+
+		return &Command{
+			Type: CommandExit,
+		}, nil
+
+	case HELP:
+		if len(tokens) != 1 {
+			return nil, InvalidNumberOfTokens
+		}
+
+		return &Command{
+			Type: CommandHelp,
 		}, nil
 
 	case TRANSACTION:
