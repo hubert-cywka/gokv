@@ -1,1 +1,1 @@
-Toy in-memory KV store with persistance, transactions and MVCC.
+Toy in-memory KV store with persistence, transactions and MVCC.
