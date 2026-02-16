@@ -1,11 +1,13 @@
 package engine
 
 import (
+	"context"
 	"kv/engine/mvcc"
 	"kv/engine/tx"
 	"kv/engine/wal"
 	"kv/engine/wal/record"
 	"sync"
+	"time"
 )
 
 const maxWorkers = 100
@@ -22,7 +24,24 @@ func NewVacuumer(versionMap *mvcc.VersionMap, walAppender wal.Appender) *Vacuume
 	}
 }
 
-func (v *Vacuumer) Vacuum(tm *tx.Manager) {
+func (v *Vacuumer) RunOnInterval(txManager *tx.Manager, interval time.Duration, ctx context.Context) {
+	ticker := time.NewTicker(interval)
+
+	go func() {
+		for {
+			v.RunOnce(txManager)
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				continue
+			}
+		}
+	}()
+}
+
+func (v *Vacuumer) RunOnce(tm *tx.Manager) {
 	horizon := tm.FindTxHorizon()
 
 	var wg sync.WaitGroup

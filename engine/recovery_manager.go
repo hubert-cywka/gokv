@@ -69,7 +69,6 @@ func (rm *RecoveryManager) applyValueRecord(key string, r record.Record) {
 }
 
 func (rm *RecoveryManager) applyFreezeRecord(key string) {
-	rm.versionMap.Remove(key)
 	chain, _ := rm.versionMap.GetChain(key)
 
 	if head := chain.Head(); head != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"kv/engine"
 	"kv/engine/mvcc"
@@ -10,12 +11,11 @@ import (
 	"kv/observability"
 	"kv/storage"
 	"os"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
-
-// TODO: Run autovacuum
 
 func main() {
 	observability.SetLoggingLevel(zerolog.InfoLevel)
@@ -26,6 +26,9 @@ func main() {
 }
 
 func run(cfg Config) (err error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	storageManager := storage.NewManager()
 
 	var closers Disposer
@@ -45,10 +48,15 @@ func run(cfg Config) (err error) {
 		return err
 	}
 
-	kvStore, err := bootstrapKVStore(writeAheadLog, writeAheadLog, cfg)
+	versionMap := mvcc.NewVersionMap()
+	kvStore, err := bootstrapKVStore(versionMap, writeAheadLog, writeAheadLog, cfg)
 	if err != nil {
 		return err
 	}
+
+	// TODO: "Smart" autovacuum - do not run it if there is no need to.
+	vacuumer := engine.NewVacuumer(versionMap, writeAheadLog)
+	vacuumer.RunOnInterval(txManager, 120*time.Second, ctx)
 
 	return startRepl(txManager, kvStore)
 }
@@ -100,8 +108,12 @@ func bootstrapTxManager(storageManager *storage.Manager, walAppender wal.Appende
 	return manager, nil
 }
 
-func bootstrapKVStore(walReplayer wal.Replayer, walAppender wal.Appender, cfg Config) (*kvstore.KVStore, error) {
-	versionMap := mvcc.NewVersionMap()
+func bootstrapKVStore(
+	versionMap *mvcc.VersionMap,
+	walReplayer wal.Replayer,
+	walAppender wal.Appender,
+	cfg Config,
+) (*kvstore.KVStore, error) {
 	mvccStore := mvcc.NewStore(versionMap)
 	recoveryManager := engine.NewRecoveryManager(versionMap, walReplayer)
 

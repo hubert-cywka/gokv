@@ -35,7 +35,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		initialValue := []byte("111")
 		givenEntryCommitted(key, initialValue)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, _ := versionMap.GetChain(key)
 		got := chain.Head()
@@ -49,7 +49,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, initialValue)
 		txA := givenTransactionActive()
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
@@ -65,7 +65,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, initialValue)
 		givenEntryCommitted(key, initialValue)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
 		test.AssertTrue(t, ok)
@@ -81,7 +81,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, initialValue)
 		givenEntryCommitted(key, initialValue)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
 		test.AssertTrue(t, ok)
@@ -96,7 +96,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, initialValue)
 		givenEntryCommitted(key, initialValue)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		freezeRecord := mockWriteAheadLog.Records[len(mockWriteAheadLog.Records)-1]
 		test.AssertEqual(t, string(freezeRecord.Key), key)
@@ -110,7 +110,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, initialValue)
 		txA := givenTransactionActive()
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
@@ -128,7 +128,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, initialValue)
 		txA := givenTransactionActive()
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
@@ -145,7 +145,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		txA := givenTransactionActive()
 		givenEntryCommitted(key, initialValue)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
@@ -163,7 +163,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		txA := givenTransactionActive()
 		givenEntryCommitted(key, initialValue)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
@@ -178,7 +178,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, []byte("v1"))
 		givenEntryDeleted(key)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		_, ok := versionMap.GetChain(key)
 		test.AssertFalse(t, ok)
@@ -192,7 +192,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		givenEntryCommitted(key, []byte("v4"))
 		givenEntryCommitted(key, []byte("v5"))
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
 		test.AssertTrue(t, ok)
@@ -207,7 +207,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		txLive := beginTransaction(t, txManager)
 		_ = coordinator.Set(key, []byte("v2"), txLive)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
 		test.AssertTrue(t, ok)
@@ -223,7 +223,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		txLive := beginTransaction(t, txManager)
 		_ = coordinator.Set(key, []byte("v2"), txLive)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
 		test.AssertTrue(t, ok)
@@ -239,7 +239,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		txLive := beginTransaction(t, txManager)
 		_ = coordinator.Set(key, []byte("v2"), txLive)
 
-		vacuumer.Vacuum(txManager)
+		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
 		test.AssertTrue(t, ok)
