@@ -1,4 +1,4 @@
-package test
+package assert
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func AssertTrue(t *testing.T, got bool) {
+func True(t *testing.T, got bool) {
 	t.Helper()
 
 	if !got {
@@ -15,7 +15,7 @@ func AssertTrue(t *testing.T, got bool) {
 	}
 }
 
-func AssertFalse(t *testing.T, got bool) {
+func False(t *testing.T, got bool) {
 	t.Helper()
 
 	if got {
@@ -23,7 +23,7 @@ func AssertFalse(t *testing.T, got bool) {
 	}
 }
 
-func AssertEqual[T comparable](t *testing.T, got, want T) {
+func Equal[T comparable](t *testing.T, got, want T) {
 	t.Helper()
 
 	if !reflect.DeepEqual(got, want) {
@@ -31,7 +31,7 @@ func AssertEqual[T comparable](t *testing.T, got, want T) {
 	}
 }
 
-func AssertNotEqual[T comparable](t *testing.T, got, want T) {
+func NotEqual[T comparable](t *testing.T, got, want T) {
 	t.Helper()
 
 	if reflect.DeepEqual(got, want) {
@@ -39,7 +39,7 @@ func AssertNotEqual[T comparable](t *testing.T, got, want T) {
 	}
 }
 
-func AssertBytesEqual(t *testing.T, got, want []byte) {
+func BytesEqual(t *testing.T, got, want []byte) {
 	t.Helper()
 
 	if !bytes.Equal(got, want) {
@@ -47,7 +47,7 @@ func AssertBytesEqual(t *testing.T, got, want []byte) {
 	}
 }
 
-func AssertBytesNotEqual(t *testing.T, a, b []byte) {
+func BytesNotEqual(t *testing.T, a, b []byte) {
 	t.Helper()
 
 	if bytes.Equal(a, b) {
@@ -55,7 +55,7 @@ func AssertBytesNotEqual(t *testing.T, a, b []byte) {
 	}
 }
 
-func AssertError(t *testing.T, got, want error) {
+func Error(t *testing.T, got, want error) {
 	t.Helper()
 
 	if !errors.Is(got, want) {
@@ -63,7 +63,7 @@ func AssertError(t *testing.T, got, want error) {
 	}
 }
 
-func AssertNoError(t *testing.T, err error) {
+func NoError(t *testing.T, err error) {
 	t.Helper()
 
 	if err != nil {

@@ -1,12 +1,12 @@
 package engine
 
 import (
+	"kv/assert"
 	"kv/engine/internal/mocks"
 	"kv/engine/mvcc"
 	"kv/engine/tx"
 	"kv/engine/wal/record"
 	storagemocks "kv/storage/mocks"
-	"kv/test"
 	"testing"
 )
 
@@ -53,7 +53,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotPruned(t, got)
@@ -68,7 +68,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotPruned(t, got)
@@ -84,7 +84,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertFrozen(t, got)
@@ -99,8 +99,8 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		freezeRecord := mockWriteAheadLog.Records[len(mockWriteAheadLog.Records)-1]
-		test.AssertEqual(t, string(freezeRecord.Key), key)
-		test.AssertEqual(t, freezeRecord.Kind, record.Freeze)
+		assert.Equal(t, string(freezeRecord.Key), key)
+		assert.Equal(t, freezeRecord.Kind, record.Freeze)
 	})
 
 	t.Run("it removes older versions when they are not visible by any transaction", func(t *testing.T) {
@@ -114,7 +114,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotPruned(t, got)
@@ -132,7 +132,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertFrozen(t, got)
@@ -149,7 +149,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotPruned(t, got)
@@ -167,7 +167,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		_ = txA.Commit()
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotFrozen(t, got)
@@ -181,7 +181,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		_, ok := versionMap.GetChain(key)
-		test.AssertFalse(t, ok)
+		assert.False(t, ok)
 	})
 
 	t.Run("it prunes older versions in a long chain", func(t *testing.T) {
@@ -195,7 +195,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertPruned(t, got.PreviousVersion())
@@ -210,7 +210,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotPruned(t, got)
@@ -226,7 +226,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotFrozen(t, got)
@@ -242,7 +242,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 		vacuumer.RunOnce(txManager)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		mvcc.AssertNotPruned(t, got)
@@ -253,7 +253,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 
 func beginTransaction(t *testing.T, txManager *tx.Manager) *tx.Transaction {
 	transaction, err := txManager.Begin()
-	test.AssertNoError(t, err)
+	assert.NoError(t, err)
 	return transaction
 }
 

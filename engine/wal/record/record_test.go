@@ -1,7 +1,7 @@
 package record
 
 import (
-	"kv/test"
+	"kv/assert"
 	"testing"
 )
 
@@ -13,7 +13,7 @@ func TestRecord_Checksum(t *testing.T) {
 		record.Key = []byte("modified_key")
 		current := record.Checksum()
 
-		test.AssertNotEqual(t, previous, current)
+		assert.NotEqual(t, previous, current)
 	})
 
 	t.Run("it changes checksum when value changes", func(t *testing.T) {
@@ -23,7 +23,7 @@ func TestRecord_Checksum(t *testing.T) {
 		record.Value = []byte("modified_value")
 		current := record.Checksum()
 
-		test.AssertNotEqual(t, previous, current)
+		assert.NotEqual(t, previous, current)
 	})
 
 	t.Run("it changes checksum when kind changes", func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestRecord_Checksum(t *testing.T) {
 		record.Kind = Tombstone
 		current := record.Checksum()
 
-		test.AssertNotEqual(t, previous, current)
+		assert.NotEqual(t, previous, current)
 	})
 
 	t.Run("it changes checksum when transaction ID changes", func(t *testing.T) {
@@ -43,6 +43,6 @@ func TestRecord_Checksum(t *testing.T) {
 		record.TxID = 9999999
 		current := record.Checksum()
 
-		test.AssertNotEqual(t, previous, current)
+		assert.NotEqual(t, previous, current)
 	})
 }

@@ -3,10 +3,10 @@ package wal
 import (
 	"bytes"
 	"fmt"
+	"kv/assert"
 	"kv/engine/wal/record"
 	"kv/observability"
 	"kv/storage/mocks"
-	"kv/test"
 	"strconv"
 	"sync"
 	"testing"
@@ -73,7 +73,7 @@ func TestWriteAheadLog_Append(t *testing.T) {
 		_ = wal.Close()
 		err := wal.Append(record.NewValue("key", []byte("value"), 1))
 
-		test.AssertError(t, err, WriteAheadLogClosedError)
+		assert.Error(t, err, WriteAheadLogClosedError)
 	})
 }
 
@@ -100,10 +100,10 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 
 		err := wal.Replay(replayFunc)
 
-		test.AssertEqual(t, err, nil)
-		test.AssertEqual(t, len(got), 2)
-		test.AssertEqual(t, got[0], record1)
-		test.AssertEqual(t, got[1], record2)
+		assert.Equal(t, err, nil)
+		assert.Equal(t, len(got), 2)
+		assert.Equal(t, got[0], record1)
+		assert.Equal(t, got[1], record2)
 	})
 
 	t.Run("it replays records in the same order", func(t *testing.T) {
@@ -125,10 +125,10 @@ func TestWriteAheadLog_Replay(t *testing.T) {
 			secondReplayResult = append(secondReplayResult, &record)
 		})
 
-		test.AssertEqual(t, len(firstReplayResult), len(secondReplayResult))
-		test.AssertEqual(t, firstReplayResult[0], secondReplayResult[0])
-		test.AssertEqual(t, firstReplayResult[1], secondReplayResult[1])
-		test.AssertEqual(t, firstReplayResult[2], secondReplayResult[2])
+		assert.Equal(t, len(firstReplayResult), len(secondReplayResult))
+		assert.Equal(t, firstReplayResult[0], secondReplayResult[0])
+		assert.Equal(t, firstReplayResult[1], secondReplayResult[1])
+		assert.Equal(t, firstReplayResult[2], secondReplayResult[2])
 	})
 }
 

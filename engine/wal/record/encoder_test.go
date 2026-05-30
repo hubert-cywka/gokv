@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"kv/test"
+	"kv/assert"
 	"testing"
 )
 
@@ -13,27 +13,27 @@ func TestEncoder_Encode(t *testing.T) {
 		t.Helper()
 		offset := 0
 
-		test.AssertEqual(t, data[offset], r.Kind)
+		assert.Equal(t, data[offset], r.Kind)
 		offset += kindSize
 
 		gotTxID := binary.LittleEndian.Uint64(data[offset : offset+txIDSize])
-		test.AssertEqual(t, gotTxID, r.TxID)
+		assert.Equal(t, gotTxID, r.TxID)
 		offset += txIDSize
 
 		gotKeyLen := binary.LittleEndian.Uint16(data[offset : offset+keyLengthSize])
-		test.AssertEqual(t, gotKeyLen, uint16(len(r.Key)))
+		assert.Equal(t, gotKeyLen, uint16(len(r.Key)))
 		offset += keyLengthSize
 
 		gotValLen := binary.LittleEndian.Uint32(data[offset : offset+valueLengthSize])
-		test.AssertEqual(t, gotValLen, uint32(len(r.Value)))
+		assert.Equal(t, gotValLen, uint32(len(r.Value)))
 		offset += valueLengthSize
 
 		gotChecksum := binary.LittleEndian.Uint32(data[offset : offset+checksumSize])
-		test.AssertEqual(t, gotChecksum, r.Checksum())
+		assert.Equal(t, gotChecksum, r.Checksum())
 		offset += checksumSize
 
-		test.AssertBytesEqual(t, data[offset:offset+len(r.Key)], r.Key)
-		test.AssertBytesEqual(t, data[offset+len(r.Key):], r.Value)
+		assert.BytesEqual(t, data[offset:offset+len(r.Key)], r.Key)
+		assert.BytesEqual(t, data[offset+len(r.Key):], r.Value)
 	}
 
 	t.Run("it encodes record with correct binary layout", func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestEncoder_Encode(t *testing.T) {
 
 		err := NewEncoder(buf).Encode(record)
 
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		verifyLayout(t, buf.Bytes(), record)
 	})
 
@@ -50,7 +50,7 @@ func TestEncoder_Encode(t *testing.T) {
 		encoder := NewEncoder(&limitedWriter{limit: 3})
 		err := encoder.Encode(NewValue("long-Key", []byte("Value"), 1))
 
-		test.AssertError(t, err, io.ErrShortWrite)
+		assert.Error(t, err, io.ErrShortWrite)
 	})
 }
 

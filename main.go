@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	observability.SetLoggingLevel(zerolog.InfoLevel)
+	observability.SetLoggingLevel(zerolog.DebugLevel)
 
 	if err := run(DefaultConfig()); err != nil {
 		log.Fatal().Err(err).Msg("application startup failed")

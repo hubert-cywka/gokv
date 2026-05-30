@@ -1,8 +1,8 @@
 package tx
 
 import (
+	"kv/assert"
 	"kv/storage/mocks"
-	"kv/test"
 	"testing"
 )
 
@@ -12,8 +12,8 @@ func TestManifest(t *testing.T) {
 		manifest := NewManifest(file)
 
 		reserved, err := manifest.LastReservedID()
-		test.AssertNoError(t, err)
-		test.AssertEqual(t, uint64(0), reserved)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(0), reserved)
 	})
 
 	t.Run("it reserves IDs and persists them", func(t *testing.T) {
@@ -21,13 +21,13 @@ func TestManifest(t *testing.T) {
 		oldManifest := NewManifest(file)
 
 		_, until, err := oldManifest.ReserveIDs(100)
-		test.AssertNoError(t, err)
-		test.AssertEqual(t, uint64(100), until)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(100), until)
 
 		newManifest := NewManifest(file)
 		reserved, err := newManifest.LastReservedID()
-		test.AssertNoError(t, err)
-		test.AssertEqual(t, uint64(100), reserved)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(100), reserved)
 	})
 
 	t.Run("it increments existing reserved IDs", func(t *testing.T) {
@@ -37,8 +37,8 @@ func TestManifest(t *testing.T) {
 		_, _, _ = manifest.ReserveIDs(50)
 		_, until, err := manifest.ReserveIDs(50)
 
-		test.AssertNoError(t, err)
-		test.AssertEqual(t, uint64(100), until)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(100), until)
 	})
 
 	t.Run("it does not waste IDs when fetching new range", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestManifest(t *testing.T) {
 		_, firstUntil, _ := manifest.ReserveIDs(50)
 		secondFrom, _, _ := manifest.ReserveIDs(50)
 
-		test.AssertEqual(t, firstUntil+1, secondFrom)
+		assert.Equal(t, firstUntil+1, secondFrom)
 	})
 
 	t.Run("it detects checksum corruption", func(t *testing.T) {
@@ -59,6 +59,6 @@ func TestManifest(t *testing.T) {
 		file.Data[2] = ^file.Data[2]
 		_, err := manifest.LastReservedID()
 
-		test.AssertError(t, err, ManifestChecksumMismatchError)
+		assert.Error(t, err, ManifestChecksumMismatchError)
 	})
 }

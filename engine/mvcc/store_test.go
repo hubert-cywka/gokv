@@ -1,7 +1,7 @@
 package mvcc
 
 import (
-	"kv/test"
+	"kv/assert"
 	"testing"
 )
 
@@ -22,8 +22,8 @@ func TestCoordinator_Get(t *testing.T) {
 
 		got, err := store.Get(key, beginTransaction(t, txManager))
 
-		test.AssertNoError(t, err)
-		test.AssertBytesEqual(t, got, initialValue)
+		assert.NoError(t, err)
+		assert.BytesEqual(t, got, initialValue)
 	})
 
 	t.Run("it returns error if key does not exist", func(t *testing.T) {
@@ -31,8 +31,8 @@ func TestCoordinator_Get(t *testing.T) {
 
 		got, err := store.Get(key, beginTransaction(t, txManager))
 
-		test.AssertError(t, err, KeyNotFoundError)
-		test.AssertBytesEqual(t, got, nil)
+		assert.Error(t, err, KeyNotFoundError)
+		assert.BytesEqual(t, got, nil)
 	})
 
 	t.Run("it handles dirty reads", func(t *testing.T) {
@@ -48,8 +48,8 @@ func TestCoordinator_Get(t *testing.T) {
 
 		got, err := store.Get(key, txA)
 
-		test.AssertNoError(t, err)
-		test.AssertBytesEqual(t, got, initialValue)
+		assert.NoError(t, err)
+		assert.BytesEqual(t, got, initialValue)
 	})
 
 	t.Run("it correctly skips multiple tombstones in version chain", func(t *testing.T) {
@@ -68,8 +68,8 @@ func TestCoordinator_Get(t *testing.T) {
 
 		value, err := store.Get(key, beginTransaction(t, txManager))
 
-		test.AssertBytesEqual(t, value, nil)
-		test.AssertError(t, err, KeyNotFoundError)
+		assert.BytesEqual(t, value, nil)
+		assert.Error(t, err, KeyNotFoundError)
 	})
 }
 
@@ -89,13 +89,13 @@ func TestCoordinator_Set(t *testing.T) {
 
 		txA := beginTransaction(t, txManager)
 		err := store.Set(key, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
-		test.AssertBytesEqual(t, got.Value, value)
+		assert.BytesEqual(t, got.Value, value)
 	})
 
 	t.Run("it sets new value visible in future transactions", func(t *testing.T) {
@@ -104,17 +104,17 @@ func TestCoordinator_Set(t *testing.T) {
 
 		txA := beginTransaction(t, txManager)
 		err := store.Set(key, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = txA.Commit()
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
 		AssertNotPruned(t, got)
-		test.AssertBytesEqual(t, got.Value, value)
+		assert.BytesEqual(t, got.Value, value)
 	})
 
 	t.Run("it returns error when concurrent update is detected", func(t *testing.T) {
@@ -126,10 +126,10 @@ func TestCoordinator_Set(t *testing.T) {
 		txB := beginTransaction(t, txManager)
 
 		err := store.Set(key, []byte("2"), txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = store.Set(key, []byte("3"), txB)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 	})
 
 	t.Run("it prevents deadlocks when inserting", func(t *testing.T) {
@@ -141,16 +141,16 @@ func TestCoordinator_Set(t *testing.T) {
 		txB := beginTransaction(t, txManager)
 
 		err := store.Set(key1, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = store.Set(key2, value, txB)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = store.Set(key2, value, txA)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 
 		err = store.Set(key1, value, txB)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 	})
 
 	t.Run("it prevents deadlocks when updating", func(t *testing.T) {
@@ -164,16 +164,16 @@ func TestCoordinator_Set(t *testing.T) {
 		txB := beginTransaction(t, txManager)
 
 		err := store.Set(key1, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = store.Set(key2, value, txB)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = store.Set(key2, value, txA)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 
 		err = store.Set(key1, value, txB)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 	})
 }
 
@@ -193,20 +193,20 @@ func TestCoordinator_Delete(t *testing.T) {
 
 		txA := beginTransaction(t, txManager)
 		err := vacuumer.Delete(key, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		chain, ok := versionMap.GetChain(key)
-		test.AssertTrue(t, ok)
+		assert.True(t, ok)
 
 		got := chain.Head()
-		test.AssertEqual(t, got.XMax(), txA.ID)
+		assert.Equal(t, got.XMax(), txA.ID)
 	})
 
 	t.Run("it returns error when key does not exist", func(t *testing.T) {
 		txA := beginTransaction(t, txManager)
 		err := vacuumer.Delete("non-existent", txA)
 
-		test.AssertError(t, err, KeyNotFoundError)
+		assert.Error(t, err, KeyNotFoundError)
 	})
 
 	t.Run("it returns error when entry is already being deleted by another transaction", func(t *testing.T) {
@@ -217,10 +217,10 @@ func TestCoordinator_Delete(t *testing.T) {
 		txB := beginTransaction(t, txManager)
 
 		err := vacuumer.Delete(key, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = vacuumer.Delete(key, txB)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 	})
 
 	t.Run("it returns error when trying to delete entry created by future transaction", func(t *testing.T) {
@@ -231,7 +231,7 @@ func TestCoordinator_Delete(t *testing.T) {
 		givenEntryCommitted(key, []byte("future-val"))
 
 		err := vacuumer.Delete(key, txA)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 	})
 
 	t.Run("it prevents deadlocks", func(t *testing.T) {
@@ -245,15 +245,15 @@ func TestCoordinator_Delete(t *testing.T) {
 		txB := beginTransaction(t, txManager)
 
 		err := vacuumer.Delete(key1, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = vacuumer.Delete(key2, txB)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		err = vacuumer.Delete(key2, txA)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 
 		err = vacuumer.Delete(key1, txB)
-		test.AssertError(t, err, SerializationError)
+		assert.Error(t, err, SerializationError)
 	})
 }

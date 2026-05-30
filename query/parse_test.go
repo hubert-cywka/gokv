@@ -1,7 +1,7 @@
 package query
 
 import (
-	"kv/test"
+	"kv/assert"
 	"testing"
 )
 
@@ -109,14 +109,14 @@ func TestParse(t *testing.T) {
 			cmd, err := Parse(tt.input)
 
 			if tt.wantError != nil {
-				test.AssertError(t, tt.wantError, err)
+				assert.Error(t, tt.wantError, err)
 				return
 			}
 
-			test.AssertNoError(t, err)
-			test.AssertEqual(t, cmd.Type, tt.wantCommand.Type)
-			test.AssertEqual(t, cmd.Key, tt.wantCommand.Key)
-			test.AssertBytesEqual(t, cmd.Value, tt.wantCommand.Value)
+			assert.NoError(t, err)
+			assert.Equal(t, cmd.Type, tt.wantCommand.Type)
+			assert.Equal(t, cmd.Key, tt.wantCommand.Key)
+			assert.BytesEqual(t, cmd.Value, tt.wantCommand.Value)
 		})
 	}
 }

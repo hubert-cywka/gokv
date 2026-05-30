@@ -3,8 +3,8 @@ package record
 import (
 	"bytes"
 	"io"
+	"kv/assert"
 	"kv/conversion"
-	"kv/test"
 	"testing"
 )
 
@@ -30,10 +30,10 @@ func TestDecoder_Decode(t *testing.T) {
 		got := &Record{}
 		err := NewDecoder(buf).Decode(got)
 
-		test.AssertNoError(t, err)
-		test.AssertEqual(t, got.Kind, want.Kind)
-		test.AssertBytesEqual(t, got.Key, want.Key)
-		test.AssertBytesEqual(t, got.Value, want.Value)
+		assert.NoError(t, err)
+		assert.Equal(t, got.Kind, want.Kind)
+		assert.BytesEqual(t, got.Key, want.Key)
+		assert.BytesEqual(t, got.Value, want.Value)
 	})
 
 	t.Run("it returns error on checksum mismatch", func(t *testing.T) {
@@ -41,17 +41,17 @@ func TestDecoder_Decode(t *testing.T) {
 		buf := writeRecord(want, want.Checksum()+1)
 
 		err := NewDecoder(buf).Decode(&Record{})
-		test.AssertError(t, err, ChecksumMismatchError)
+		assert.Error(t, err, ChecksumMismatchError)
 	})
 
 	t.Run("it returns EOF on empty reader", func(t *testing.T) {
 		err := NewDecoder(new(bytes.Buffer)).Decode(&Record{})
-		test.AssertError(t, err, io.EOF)
+		assert.Error(t, err, io.EOF)
 	})
 
 	t.Run("it returns error if header is truncated", func(t *testing.T) {
 		buf := bytes.NewReader([]byte{1, 0, 5})
 		err := NewDecoder(buf).Decode(&Record{})
-		test.AssertError(t, err, io.ErrUnexpectedEOF)
+		assert.Error(t, err, io.ErrUnexpectedEOF)
 	})
 }

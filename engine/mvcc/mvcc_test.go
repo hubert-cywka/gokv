@@ -2,7 +2,7 @@ package mvcc
 
 import (
 	"errors"
-	"kv/test"
+	"kv/assert"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,7 +24,7 @@ func TestMVCC(t *testing.T) {
 
 		txA := beginTransaction(t, txManager)
 		err := coordinator.Set(key, []byte("200"), txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		txA.Abort()
 
@@ -32,8 +32,8 @@ func TestMVCC(t *testing.T) {
 		got, err := coordinator.Get(key, txB)
 		_ = txB.Commit()
 
-		test.AssertNoError(t, err)
-		test.AssertBytesEqual(t, got, []byte("100"))
+		assert.NoError(t, err)
+		assert.BytesEqual(t, got, []byte("100"))
 	})
 
 	t.Run("it rollbacks deletes when transaction is aborted", func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestMVCC(t *testing.T) {
 
 		txA := beginTransaction(t, txManager)
 		err := coordinator.Delete(key, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		txA.Abort()
 
@@ -50,8 +50,8 @@ func TestMVCC(t *testing.T) {
 		got, err := coordinator.Get(key, txB)
 		_ = txB.Commit()
 
-		test.AssertNoError(t, err)
-		test.AssertBytesEqual(t, got, []byte("100"))
+		assert.NoError(t, err)
+		assert.BytesEqual(t, got, []byte("100"))
 	})
 
 	t.Run("it rollbacks all changes when transaction is aborted", func(t *testing.T) {
@@ -66,15 +66,15 @@ func TestMVCC(t *testing.T) {
 		txA := beginTransaction(t, txManager)
 
 		err := coordinator.Set(key1, value1, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Set(key1, value1, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Set(key1, value1, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Set(key2, value2, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Delete(key3, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		txA.Abort()
 
@@ -84,10 +84,10 @@ func TestMVCC(t *testing.T) {
 		got3, err3 := coordinator.Get(key3, txB)
 		_ = txB.Commit()
 
-		test.AssertError(t, err1, KeyNotFoundError)
-		test.AssertError(t, err2, KeyNotFoundError)
-		test.AssertNoError(t, err3)
-		test.AssertBytesEqual(t, got3, value3)
+		assert.Error(t, err1, KeyNotFoundError)
+		assert.Error(t, err2, KeyNotFoundError)
+		assert.NoError(t, err3)
+		assert.BytesEqual(t, got3, value3)
 	})
 
 	t.Run("it allows set -> set in the same transaction", func(t *testing.T) {
@@ -97,9 +97,9 @@ func TestMVCC(t *testing.T) {
 		txA := beginTransaction(t, txManager)
 
 		err := coordinator.Set(key, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Set(key, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		_ = txA.Commit()
 	})
@@ -111,11 +111,11 @@ func TestMVCC(t *testing.T) {
 		txA := beginTransaction(t, txManager)
 
 		err := coordinator.Set(key, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Delete(key, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 		err = coordinator.Set(key, value, txA)
-		test.AssertNoError(t, err)
+		assert.NoError(t, err)
 
 		_ = txA.Commit()
 	})
@@ -144,10 +144,10 @@ func TestMVCC(t *testing.T) {
 		_ = tx3.Commit()
 
 		got1, _ := coordinator.Get(key, snap1)
-		test.AssertBytesEqual(t, got1, v1)
+		assert.BytesEqual(t, got1, v1)
 
 		got2, _ := coordinator.Get(key, snap2)
-		test.AssertBytesEqual(t, got2, v2)
+		assert.BytesEqual(t, got2, v2)
 	})
 
 	t.Run("it avoids data corruption in high concurrency scenario", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestMVCC(t *testing.T) {
 					txA := beginTransaction(t, txManager)
 
 					val, err := coordinator.Get(key, txA)
-					test.AssertNoError(t, err)
+					assert.NoError(t, err)
 
 					err = coordinator.Set(key, append(val, '+'), txA)
 
@@ -192,6 +192,6 @@ func TestMVCC(t *testing.T) {
 		finalTx := beginTransaction(t, txManager)
 		finalVal, _ := coordinator.Get(key, finalTx)
 
-		test.AssertEqual(t, len(finalVal)-1, int(successfulUpdates.Load()))
+		assert.Equal(t, len(finalVal)-1, int(successfulUpdates.Load()))
 	})
 }

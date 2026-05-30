@@ -8,6 +8,8 @@ import (
 	"kv/engine/wal/record"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const maxWorkers = 100
@@ -43,6 +45,7 @@ func (v *Vacuumer) RunOnInterval(txManager *tx.Manager, interval time.Duration, 
 
 func (v *Vacuumer) RunOnce(tm *tx.Manager) {
 	horizon := tm.FindTxHorizon()
+	log.Debug().Int64("horizon", int64(horizon)).Msg("starting vacuuming process")
 
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxWorkers)
@@ -78,6 +81,7 @@ func (v *Vacuumer) RunOnce(tm *tx.Manager) {
 	})
 
 	wg.Wait()
+	log.Debug().Int64("horizon", int64(horizon)).Msg("finished vacuuming process")
 }
 
 func (v *Vacuumer) vacuumChain(head *mvcc.Version, horizon tx.ID) {

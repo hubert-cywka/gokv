@@ -2,7 +2,7 @@ package record
 
 import (
 	"bytes"
-	"kv/test"
+	"kv/assert"
 	"testing"
 )
 
@@ -25,16 +25,16 @@ func TestEncodingContract(t *testing.T) {
 				decoder := NewDecoder(buf)
 
 				err := encoder.Encode(tt.original)
-				test.AssertNoError(t, err)
+				assert.NoError(t, err)
 
 				decoded := &Record{}
 				err = decoder.Decode(decoded)
-				test.AssertNoError(t, err)
+				assert.NoError(t, err)
 
-				test.AssertEqual(t, decoded.Kind, tt.original.Kind)
-				test.AssertEqual(t, decoded.TxID, tt.original.TxID)
-				test.AssertBytesEqual(t, decoded.Key, tt.original.Key)
-				test.AssertBytesEqual(t, decoded.Value, tt.original.Value)
+				assert.Equal(t, decoded.Kind, tt.original.Kind)
+				assert.Equal(t, decoded.TxID, tt.original.TxID)
+				assert.BytesEqual(t, decoded.Key, tt.original.Key)
+				assert.BytesEqual(t, decoded.Value, tt.original.Value)
 			})
 		}
 	})
