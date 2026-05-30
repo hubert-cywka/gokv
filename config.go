@@ -23,7 +23,7 @@ func DefaultConfig() Config {
 	return Config{
 		VacuumInterval: 120 * time.Second,
 
-		TxManifestPath:        "./internals/transactions/manifest.json",
+		TxManifestPath:        "./data/transactions/manifest.json",
 		ReservedTxIDsPerBatch: 1000,
 		MaxActiveTx:           100,
 
@@ -33,7 +33,7 @@ func DefaultConfig() Config {
 		WalBufferSize:   512 * 1024,
 		WalCommitWait:   5 * time.Millisecond,
 		LogSegmentSize:  512 * 1024,
-		LogDir:          "./internals/log",
-		LogManifestPath: "./internals/log/manifest.json",
+		LogDir:          "./data/log",
+		LogManifestPath: "./data/log/manifest.json",
 	}
 }

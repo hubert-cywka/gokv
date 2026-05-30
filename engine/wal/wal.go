@@ -10,6 +10,14 @@ import (
 )
 
 // TODO: Snapshotting
+// - Store metadata in manifest
+// - Atomically rename previous snapshot
+// - Snapshot should have following structure:
+//   - Manifest file
+//   - N data parts
+//   - Each part should contains the latest version of each row
+//   - Everything stored in a single directory
+// - When replaying WAL, replay the snapshot first
 
 type batchCommitContext struct {
 	done chan struct{}

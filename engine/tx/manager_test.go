@@ -65,7 +65,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 		_ = tx3.Commit()
 	})
 
-	t.Run("it captures activeTx transactions in snapshot", func(t *testing.T) {
+	t.Run("it captures active transactions in snapshot", func(t *testing.T) {
 		tx1, _ := tm.Begin()
 		tx2, _ := tm.Begin()
 		tx3, _ := tm.Begin()
@@ -111,7 +111,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 		_ = tx3.Commit()
 	})
 
-	t.Run("it returns error when number max of activeTx transactions is exceeded", func(t *testing.T) {
+	t.Run("it returns error when number max of active transactions is exceeded", func(t *testing.T) {
 		activeTxs := make(map[ID]*Transaction, maxActiveTx)
 		for range maxActiveTx {
 			tx, err := tm.Begin()
@@ -127,7 +127,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 		}
 	})
 
-	t.Run("it decreases number of activeTx transactions after a transaction ends", func(t *testing.T) {
+	t.Run("it decreases number of active transactions after a transaction ends", func(t *testing.T) {
 		activeTxs := make(map[ID]*Transaction, maxActiveTx)
 		for range maxActiveTx {
 			tx, err := tm.Begin()
@@ -147,7 +147,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 func TestTransactionManager_Horizon(t *testing.T) {
 	tm, _ := setup()
 
-	t.Run("it returns next ID when no transactions are activeTx", func(t *testing.T) {
+	t.Run("it returns next ID when no transactions are active", func(t *testing.T) {
 		tx1, _ := tm.Begin()
 		_ = tx1.Commit()
 
@@ -155,7 +155,7 @@ func TestTransactionManager_Horizon(t *testing.T) {
 		test.AssertEqual(t, expectedNextID, tm.FindTxHorizon())
 	})
 
-	t.Run("it returns oldest activeTx transaction ID", func(t *testing.T) {
+	t.Run("it returns oldest active transaction ID", func(t *testing.T) {
 		tx1, _ := tm.Begin()
 		tx2, _ := tm.Begin()
 		tx3, _ := tm.Begin()

@@ -8,7 +8,7 @@ import (
 )
 
 // TODO: Timeouts
-// TODO: Add a way to reuse transactions (return a pointer to a transaction that is activeTx)
+// TODO: Add a way to reuse transactions (return a pointer to a transaction that is active)
 
 type ManagerOptions struct {
 	ReservedIDsPerBatch   uint64
