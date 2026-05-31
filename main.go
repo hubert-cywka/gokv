@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	observability.SetLoggingLevel(zerolog.DebugLevel)
+	observability.SetLoggingLevel(zerolog.InfoLevel)
 
 	if err := run(DefaultConfig()); err != nil {
 		log.Fatal().Err(err).Msg("application startup failed")
@@ -102,6 +102,7 @@ func bootstrapTxManager(storageManager *storage.Manager, walAppender wal.Appende
 	manager := tx.NewManager(txManifest, walAppender, tx.ManagerOptions{
 		ReservedIDsPerBatch:   cfg.ReservedTxIDsPerBatch,
 		MaxActiveTransactions: cfg.MaxActiveTx,
+		TimeoutMs:             cfg.TxTimeoutMs,
 	})
 
 	return manager, nil

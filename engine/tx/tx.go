@@ -2,6 +2,7 @@ package tx
 
 import (
 	"sync"
+	"time"
 )
 
 const (
@@ -15,16 +16,19 @@ type Transaction struct {
 	manager  *Manager
 	snapshot Snapshot
 
-	once  sync.Once
-	mutex sync.Mutex
+	once       sync.Once
+	mutex      sync.Mutex
+	abortTimer *time.Timer
 }
 
 func newTransaction(id ID, manager *Manager, snapshot Snapshot) *Transaction {
-	return &Transaction{
+	tx := &Transaction{
 		ID:       id,
 		manager:  manager,
 		snapshot: snapshot,
 	}
+
+	return tx
 }
 
 func (tx *Transaction) Track(x version) {
@@ -45,6 +49,7 @@ func (tx *Transaction) Commit() error {
 	var err error
 
 	tx.once.Do(func() {
+		tx.stopPendingAbortTimer()
 		err = tx.manager.commit(tx.ID)
 	})
 
@@ -56,6 +61,8 @@ func (tx *Transaction) Abort() {
 	defer tx.mutex.Unlock()
 
 	tx.once.Do(func() {
+		tx.stopPendingAbortTimer()
+
 		for i := len(tx.writes) - 1; i >= 0; i-- {
 			e := tx.writes[i]
 
@@ -78,6 +85,21 @@ func (tx *Transaction) Abort() {
 	})
 }
 
+func (tx *Transaction) abortAfter(durationMs uint32) {
+	tx.mutex.Lock()
+	defer tx.mutex.Unlock()
+
+	tx.stopPendingAbortTimer()
+	tx.abortTimer = time.AfterFunc(time.Duration(durationMs)*time.Millisecond, tx.Abort)
+}
+
+func (tx *Transaction) stopPendingAbortTimer() {
+	if tx.abortTimer != nil {
+		tx.abortTimer.Stop()
+		tx.abortTimer = nil
+	}
+}
+
 func (tx *Transaction) CanSee(xMin, xMax ID) bool {
 	// Own insert
 	if xMin == tx.ID && xMax.IsAlive() {
@@ -90,7 +112,7 @@ func (tx *Transaction) CanSee(xMin, xMax ID) bool {
 	}
 
 	if !xMin.IsFrozen() {
-		// Inserted, but transaction is still activeTx
+		// Inserted, but transaction is still active
 		if tx.snapshot.IsActive(xMin) {
 			return false
 		}
@@ -111,7 +133,7 @@ func (tx *Transaction) CanSee(xMin, xMax ID) bool {
 		return true
 	}
 
-	// Deleted, but transaction still activeTx
+	// Deleted, but transaction still active
 	if tx.snapshot.IsActive(xMax) {
 		return true
 	}

@@ -7,12 +7,12 @@ import (
 	"sync/atomic"
 )
 
-// TODO: Timeouts
 // TODO: Add a way to reuse transactions (return a pointer to a transaction that is active)
 
 type ManagerOptions struct {
 	ReservedIDsPerBatch   uint64
 	MaxActiveTransactions uint16
+	TimeoutMs             uint32
 }
 
 type Manager struct {
@@ -56,7 +56,11 @@ func (tm *Manager) Begin() (*Transaction, error) {
 
 	activeTx := tm.copyActiveTx()
 	snapshot := newSnapshot(oldestTxID, txID, activeTx)
-	return newTransaction(txID, tm, snapshot), nil
+
+	tx := newTransaction(txID, tm, snapshot)
+	tx.abortAfter(tm.options.TimeoutMs)
+
+	return tx, nil
 }
 
 func (tm *Manager) FindTxHorizon() ID {

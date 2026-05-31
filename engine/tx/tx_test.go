@@ -6,6 +6,7 @@ import (
 	"kv/engine/wal/record"
 	storagemocks "kv/storage/mocks"
 	"testing"
+	"time"
 )
 
 func TestTransaction_Commit(t *testing.T) {
@@ -39,7 +40,7 @@ func TestTransaction_Commit(t *testing.T) {
 func TestTransaction_Abort(t *testing.T) {
 	tm, _ := setup()
 
-	setup := func(t *testing.T) (*Transaction, version) {
+	setupTx := func(t *testing.T) (*Transaction, version) {
 		tx, err := tm.Begin()
 		assert.NoError(t, err)
 		newVersion := newMockVersion("key", []byte("value"), IdFrozen)
@@ -47,7 +48,7 @@ func TestTransaction_Abort(t *testing.T) {
 	}
 
 	t.Run("it stops transaction", func(t *testing.T) {
-		tx, _ := setup(t)
+		tx, _ := setupTx(t)
 		assert.True(t, tm.isActive(tx.ID))
 
 		tx.Abort()
@@ -56,7 +57,7 @@ func TestTransaction_Abort(t *testing.T) {
 	})
 
 	t.Run("it restores tracked removed records", func(t *testing.T) {
-		tx, rec := setup(t)
+		tx, rec := setupTx(t)
 		rec.TryKill(tx.ID)
 
 		assert.False(t, tx.CanSee(rec.XMin(), rec.XMax()))
@@ -81,7 +82,7 @@ func TestTransaction_Abort(t *testing.T) {
 	})
 
 	t.Run("it does nothing if already committed", func(t *testing.T) {
-		tx, rec := setup(t)
+		tx, rec := setupTx(t)
 		rec.TryKill(tx.ID)
 
 		tx.Track(rec)
@@ -92,6 +93,42 @@ func TestTransaction_Abort(t *testing.T) {
 		tx.Abort()
 
 		assert.False(t, tx.CanSee(rec.XMin(), rec.XMax()))
+	})
+}
+
+func TestTransaction_AbortAfter(t *testing.T) {
+	tm, _ := setup()
+
+	setupTx := func(t *testing.T) (*Transaction, version) {
+		tx, err := tm.Begin()
+		assert.NoError(t, err)
+		newVersion := newMockVersion("key", []byte("value"), IdFrozen)
+		return tx, newVersion
+	}
+
+	t.Run("it aborts transaction after timeout", func(t *testing.T) {
+		tx, _ := setupTx(t)
+
+		tx.abortAfter(10)
+		time.Sleep(15 * time.Millisecond)
+
+		assert.False(t, tm.isActive(tx.ID))
+	})
+
+	t.Run("it does nothing when transaction was committed before timeout", func(t *testing.T) {
+		tx, rec := setupTx(t)
+		rec.TryKill(tx.ID)
+
+		tx.Track(rec)
+		tx.abortAfter(50)
+
+		err := tx.Commit()
+		assert.NoError(t, err)
+
+		time.Sleep(100 * time.Millisecond)
+
+		assert.False(t, tx.CanSee(rec.XMin(), rec.XMax()))
+		assert.False(t, tm.isActive(tx.ID))
 	})
 }
 
@@ -214,6 +251,7 @@ func setup() (*Manager, *mocks.MockAppender) {
 	return NewManager(manifest, appender, ManagerOptions{
 		ReservedIDsPerBatch:   5,
 		MaxActiveTransactions: 100,
+		TimeoutMs:             1000,
 	}), appender
 }
 

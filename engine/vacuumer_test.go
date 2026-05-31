@@ -265,6 +265,7 @@ func setupTxManager() *tx.Manager {
 	return tx.NewManager(manifest, writeAheadLog, tx.ManagerOptions{
 		ReservedIDsPerBatch:   1000,
 		MaxActiveTransactions: 1000,
+		TimeoutMs:             5000,
 	})
 }
 

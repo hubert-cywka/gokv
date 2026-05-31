@@ -36,7 +36,6 @@ func startRepl(txManager *tx.Manager, kvStore *kvstore.KVStore) error {
 
 		case query.CommandExit:
 			running = false
-			break
 
 		case query.CommandHelp:
 			printHelp()
