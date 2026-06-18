@@ -11,6 +11,7 @@ import (
 	"kv/observability"
 	"kv/storage"
 	"os"
+	"path/filepath"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,8 +29,6 @@ func run(cfg Config) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	storageManager := storage.NewManager()
-
 	var closers Disposer
 	defer func() {
 		if err = closers.Dispose(); err != nil {
@@ -37,12 +36,12 @@ func run(cfg Config) (err error) {
 		}
 	}()
 
-	writeAheadLog, err := bootstrapWriteAheadLog(storageManager, cfg, &closers)
+	writeAheadLog, err := bootstrapWriteAheadLog(cfg, &closers)
 	if err != nil {
 		return err
 	}
 
-	txManager, err := bootstrapTxManager(storageManager, writeAheadLog, cfg, &closers)
+	txManager, err := bootstrapTxManager(writeAheadLog, cfg, &closers)
 	if err != nil {
 		return err
 	}
@@ -60,8 +59,8 @@ func run(cfg Config) (err error) {
 	return startRepl(txManager, kvStore)
 }
 
-func bootstrapWriteAheadLog(storageManager *storage.Manager, cfg Config, closers *Disposer) (*wal.WriteAheadLog, error) {
-	logManifestFile, err := storageManager.Open(cfg.LogManifestPath, os.O_RDWR|os.O_CREATE)
+func bootstrapWriteAheadLog(cfg Config, closers *Disposer) (*wal.WriteAheadLog, error) {
+	logManifestFile, err := openFile(cfg.LogManifestPath, os.O_RDWR|os.O_CREATE)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log manifest: %w", err)
 	}
@@ -90,8 +89,8 @@ func bootstrapWriteAheadLog(storageManager *storage.Manager, cfg Config, closers
 	return writeAheadLog, nil
 }
 
-func bootstrapTxManager(storageManager *storage.Manager, walAppender wal.Appender, cfg Config, closers *Disposer) (*tx.Manager, error) {
-	tmManifestFile, err := storageManager.Open(cfg.TxManifestPath, os.O_RDWR|os.O_CREATE)
+func bootstrapTxManager(walAppender wal.Appender, cfg Config, closers *Disposer) (*tx.Manager, error) {
+	tmManifestFile, err := openFile(cfg.TxManifestPath, os.O_RDWR|os.O_CREATE)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tx manifest: %w", err)
 	}
@@ -131,4 +130,20 @@ func bootstrapKVStore(
 	}
 
 	return kvstore.New(storageEngine, kvOptions), nil
+}
+
+func openFile(filename string, flag int) (*os.File, error) {
+	dir := filepath.Dir(filename)
+
+	if err := storage.EnsureDirectoryExists(dir); err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile(filename, flag, 0644)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }

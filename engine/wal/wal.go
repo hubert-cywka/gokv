@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"kv/engine/wal/record"
-	"kv/storage"
 	"sync"
 	"time"
 )
@@ -25,7 +24,7 @@ type batchCommitContext struct {
 }
 
 type WriteAheadLog struct {
-	file   storage.File
+	file   ioStream
 	closed bool
 
 	writer *bufio.Writer
@@ -43,7 +42,7 @@ type Options struct {
 	WriterBufferSize    int
 }
 
-func NewWriteAheadLog(options Options, file storage.File) *WriteAheadLog {
+func NewWriteAheadLog(options Options, file ioStream) *WriteAheadLog {
 	bufferedWriter := bufio.NewWriterSize(file, options.WriterBufferSize)
 
 	return &WriteAheadLog{

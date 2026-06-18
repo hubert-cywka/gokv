@@ -2,124 +2,65 @@ package tx
 
 import (
 	"encoding/binary"
-	"errors"
-	"hash/crc32"
-	"io"
-	"kv/storage"
-	"sync"
-)
-
-const (
-	reservedUntilOffset = 0
-	reservedUntilSize   = 8
-	checksumOffset      = reservedUntilOffset + reservedUntilSize
-	checksumSize        = 4
-	manifestSize        = reservedUntilSize + checksumSize
+	"kv/statefile"
 )
 
 type Manifest struct {
-	file  storage.File
-	mutex sync.Mutex
+	file *statefile.Statefile[state]
 }
 
-type state struct {
-	reservedFrom  uint64
-	reservedUntil uint64
-}
-
-func NewManifest(file storage.File) *Manifest {
+func NewManifest(stream ioStream) *Manifest {
 	return &Manifest{
-		file: file,
+		file: statefile.New(stream, stateCodec{}),
 	}
 }
 
 func (m *Manifest) LastReservedID() (uint64, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	c, err := m.read()
-
+	s, err := m.file.Read()
 	if err != nil {
 		return 0, err
 	}
 
-	return c.reservedUntil, nil
+	return s.reservedUntil, nil
 }
 
 func (m *Manifest) ReserveIDs(count uint64) (from, until uint64, err error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	c, err := m.read()
-
+	s, err := m.file.Read()
 	if err != nil {
 		return 0, 0, err
 	}
 
-	c.reservedFrom = c.reservedUntil + 1
-	c.reservedUntil += count
+	from = s.reservedUntil + 1
 
-	if err = m.write(c); err != nil {
+	s.reservedUntil += count
+
+	if err := m.file.Write(s); err != nil {
 		return 0, 0, err
 	}
 
-	return c.reservedFrom, c.reservedUntil, nil
+	return from, s.reservedUntil, nil
 }
 
-func (m *Manifest) read() (state, error) {
-	if _, err := m.file.Seek(0, io.SeekStart); err != nil {
-		return state{}, err
-	}
-
-	buf := make([]byte, manifestSize)
-
-	n, err := io.ReadFull(m.file, buf)
-
-	if errors.Is(err, io.EOF) && n == 0 {
-		return state{reservedUntil: 0}, nil
-	}
-
-	if err != nil {
-		return state{}, err
-	}
-
-	reservedUntil := binary.LittleEndian.Uint64(buf[reservedUntilOffset : reservedUntilOffset+reservedUntilSize])
-	expectedChecksum := binary.LittleEndian.Uint32(buf[checksumOffset:])
-
-	c := state{
-		reservedUntil: reservedUntil,
-	}
-
-	if c.checksum() != expectedChecksum {
-		return state{}, ManifestChecksumMismatchError
-	}
-
-	return c, nil
+type state struct {
+	reservedUntil uint64
 }
 
-func (m *Manifest) write(s state) error {
-	buf := make([]byte, manifestSize)
+type stateCodec struct{}
 
-	binary.LittleEndian.PutUint64(buf[reservedUntilOffset:reservedUntilOffset+reservedUntilSize], s.reservedUntil)
-	binary.LittleEndian.PutUint32(buf[checksumOffset:checksumOffset+checksumSize], s.checksum())
-
-	if _, err := m.file.Seek(0, io.SeekStart); err != nil {
-		return err
-	}
-
-	if _, err := m.file.Write(buf); err != nil {
-		return err
-	}
-
-	if err := m.file.Sync(); err != nil {
-		return err
-	}
-
-	return nil
+func (stateCodec) Size() int {
+	return 8
 }
 
-func (s state) checksum() uint32 {
-	var buf [manifestSize]byte
-	binary.LittleEndian.PutUint64(buf[:], s.reservedUntil)
-	return crc32.ChecksumIEEE(buf[:])
+func (stateCodec) Zero() state {
+	return state{}
+}
+
+func (stateCodec) Marshal(s state, buf []byte) {
+	binary.LittleEndian.PutUint64(buf, s.reservedUntil)
+}
+
+func (stateCodec) Unmarshal(buf []byte) state {
+	return state{
+		reservedUntil: binary.LittleEndian.Uint64(buf),
+	}
 }

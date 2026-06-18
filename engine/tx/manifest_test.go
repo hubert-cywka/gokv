@@ -2,6 +2,7 @@ package tx
 
 import (
 	"kv/assert"
+	"kv/statefile"
 	"kv/storage/mocks"
 	"testing"
 )
@@ -59,6 +60,6 @@ func TestManifest(t *testing.T) {
 		file.Data[2] = ^file.Data[2]
 		_, err := manifest.LastReservedID()
 
-		assert.Error(t, err, ManifestChecksumMismatchError)
+		assert.Error(t, err, statefile.StatefileChecksumMismatchError)
 	})
 }

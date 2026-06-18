@@ -67,6 +67,21 @@ func (r *Record) Checksum() uint32 {
 	return h.Sum32()
 }
 
+func (r Record) Clone() Record {
+	key := make([]byte, len(r.Key))
+	copy(key, r.Key)
+
+	value := make([]byte, len(r.Value))
+	copy(value, r.Value)
+
+	return Record{
+		TxID:  r.TxID,
+		Kind:  r.Kind,
+		Key:   key,
+		Value: value,
+	}
+}
+
 func newRecord(kind uint8, key string, value []byte, txID uint64) *Record {
 	return &Record{
 		Kind:  kind,
