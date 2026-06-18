@@ -1,8 +1,8 @@
-package storage
+package statefile
 
 import "io"
 
-type File interface {
+type ioStream interface {
 	io.Writer
 	io.Seeker
 	io.Closer

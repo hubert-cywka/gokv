@@ -42,15 +42,15 @@ func TestTransactionManager_Begin(t *testing.T) {
 	})
 
 	t.Run("it persists newly reserved IDs in a file once current batch is exhausted", func(t *testing.T) {
-		prevState, _ := manifest.read()
+		prevLastReservedID, _ := manifest.LastReservedID()
 
 		for range reservedIDsPerBatch {
 			tx, _ := tm.Begin()
 			_ = tx.Commit()
 		}
 
-		newState, _ := manifest.read()
-		assert.Equal(t, prevState.reservedUntil+uint64(reservedIDsPerBatch), newState.reservedUntil)
+		newLastReservedID, _ := manifest.LastReservedID()
+		assert.Equal(t, prevLastReservedID+uint64(reservedIDsPerBatch), newLastReservedID)
 	})
 
 	t.Run("it sets correct xMin and xMax in snapshot", func(t *testing.T) {
