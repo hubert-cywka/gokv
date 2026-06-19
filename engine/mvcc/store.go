@@ -5,6 +5,8 @@ import (
 	"kv/engine/tx"
 )
 
+// TODO: Use TxManager + TxId instead of Tx?
+
 var KeyNotFoundError = errors.New("mvcc: key not found")
 var SerializationError = errors.New("mvcc: serialization error")
 

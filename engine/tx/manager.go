@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 )
 
-// TODO: Add a way to reuse transactions (return a pointer to a transaction that is active)
-
 type ManagerOptions struct {
 	ReservedIDsPerBatch   uint64
 	MaxActiveTransactions uint16
@@ -37,19 +35,16 @@ func NewManager(manifest *Manifest, walAppender wal.Appender, options ManagerOpt
 	}
 }
 
-func (tm *Manager) Begin() (*Transaction, error) {
+func (tm *Manager) BeginTx() (*Transaction, error) {
 	tm.nextIDLock.Lock()
 	defer tm.nextIDLock.Unlock()
 
 	txID, err := tm.allocateNextID()
-
 	if err != nil {
 		return nil, err
 	}
 
 	oldestTxID, found := tm.oldestActiveTx()
-	tm.trackActive(txID)
-
 	if !found {
 		oldestTxID = txID
 	}
@@ -58,9 +53,25 @@ func (tm *Manager) Begin() (*Transaction, error) {
 	snapshot := newSnapshot(oldestTxID, txID, activeTx)
 
 	tx := newTransaction(txID, tm, snapshot)
+	tx.snapshot.setActive(txID) // That's a bit stupid
 	tx.abortAfter(tm.options.TimeoutMs)
 
+	tm.trackActive(tx)
 	return tx, nil
+}
+
+// TODO: Check Tx ownership
+func (tm *Manager) GetActiveTx(id ID) (*Transaction, error) {
+	tm.nextIDLock.Lock()
+	defer tm.nextIDLock.Unlock()
+
+	value, ok := tm.activeTx.Load(id)
+
+	if !ok {
+		return nil, TransactionNotActiveError
+	}
+
+	return value.(*Transaction), nil
 }
 
 func (tm *Manager) FindTxHorizon() ID {
@@ -148,8 +159,8 @@ func (tm *Manager) copyActiveTx() map[ID]struct{} {
 	return m
 }
 
-func (tm *Manager) trackActive(txID ID) {
-	tm.activeTx.Store(txID, struct{}{})
+func (tm *Manager) trackActive(tx *Transaction) {
+	tm.activeTx.Store(tx.ID, tx)
 	tm.activeTxCount.Add(1)
 }
 

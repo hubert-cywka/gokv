@@ -18,3 +18,7 @@ func (s Snapshot) IsActive(id ID) bool {
 	_, ok := s.active[id]
 	return ok
 }
+
+func (s Snapshot) setActive(id ID) {
+	s.active[id] = struct{}{}
+}

@@ -46,7 +46,7 @@ func startRepl(txManager *tx.Manager, kvStore *kvstore.KVStore) error {
 				continue
 			}
 
-			tx, err := txManager.Begin()
+			tx, err := txManager.BeginTx()
 			if err != nil {
 				fmt.Println("ERR:", err)
 				continue

@@ -33,7 +33,7 @@ func AssertNotPruned(t *testing.T, e *Version) {
 }
 
 func beginTransaction(t *testing.T, txManager *tx.Manager) *tx.Transaction {
-	transaction, err := txManager.Begin()
+	transaction, err := txManager.BeginTx()
 	assert.NoError(t, err)
 	return transaction
 }

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTransactionManager_Begin(t *testing.T) {
+func TestTransactionManager_BeginTx(t *testing.T) {
 	reservedIDsPerBatch := 5
 	maxActiveTx := 5
 	file := storagemocks.NewFile()
@@ -21,8 +21,8 @@ func TestTransactionManager_Begin(t *testing.T) {
 	})
 
 	t.Run("it increments transaction IDs", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
 
 		assert.True(t, tx2.ID > tx1.ID)
 
@@ -34,7 +34,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 		oldMaxID := tm.maxReservedID
 
 		for range reservedIDsPerBatch {
-			tx, _ := tm.Begin()
+			tx, _ := tm.BeginTx()
 			_ = tx.Commit()
 		}
 
@@ -45,7 +45,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 		prevLastReservedID, _ := manifest.LastReservedID()
 
 		for range reservedIDsPerBatch {
-			tx, _ := tm.Begin()
+			tx, _ := tm.BeginTx()
 			_ = tx.Commit()
 		}
 
@@ -54,9 +54,9 @@ func TestTransactionManager_Begin(t *testing.T) {
 	})
 
 	t.Run("it sets correct xMin and xMax in snapshot", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
-		tx3, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
+		tx3, _ := tm.BeginTx()
 
 		assert.Equal(t, tx3.snapshot.xMin, tx1.ID)
 		assert.Equal(t, tx3.snapshot.xMax, tx3.ID)
@@ -67,9 +67,9 @@ func TestTransactionManager_Begin(t *testing.T) {
 	})
 
 	t.Run("it captures active transactions in snapshot", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
-		tx3, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
+		tx3, _ := tm.BeginTx()
 
 		ok1 := tx3.snapshot.IsActive(tx1.ID)
 		ok2 := tx3.snapshot.IsActive(tx2.ID)
@@ -85,12 +85,12 @@ func TestTransactionManager_Begin(t *testing.T) {
 	})
 
 	t.Run("it captures snapshots with incremented xMin after oldest transaction commits", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
 
 		_ = tx1.Commit()
 
-		tx3, _ := tm.Begin()
+		tx3, _ := tm.BeginTx()
 
 		assert.Equal(t, tx2.ID, tx3.snapshot.xMin)
 
@@ -99,12 +99,12 @@ func TestTransactionManager_Begin(t *testing.T) {
 	})
 
 	t.Run("it captures snapshots with incremented xMin after oldest transaction aborts", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
 
 		tx1.Abort()
 
-		tx3, _ := tm.Begin()
+		tx3, _ := tm.BeginTx()
 
 		assert.Equal(t, tx2.ID, tx3.snapshot.xMin)
 
@@ -115,12 +115,12 @@ func TestTransactionManager_Begin(t *testing.T) {
 	t.Run("it returns error when number max of active transactions is exceeded", func(t *testing.T) {
 		activeTxs := make(map[ID]*Transaction, maxActiveTx)
 		for range maxActiveTx {
-			tx, err := tm.Begin()
+			tx, err := tm.BeginTx()
 			assert.NoError(t, err)
 			activeTxs[tx.ID] = tx
 		}
 
-		_, err := tm.Begin()
+		_, err := tm.BeginTx()
 		assert.Error(t, err, MaxActiveTransactionsExceededError)
 
 		for _, activeTx := range activeTxs {
@@ -131,7 +131,7 @@ func TestTransactionManager_Begin(t *testing.T) {
 	t.Run("it decreases number of active transactions after a transaction ends", func(t *testing.T) {
 		activeTxs := make(map[ID]*Transaction, maxActiveTx)
 		for range maxActiveTx {
-			tx, err := tm.Begin()
+			tx, err := tm.BeginTx()
 			assert.NoError(t, err)
 			activeTxs[tx.ID] = tx
 		}
@@ -140,16 +140,37 @@ func TestTransactionManager_Begin(t *testing.T) {
 			_ = activeTx.Commit()
 		}
 
-		_, err := tm.Begin()
+		_, err := tm.BeginTx()
 		assert.NoError(t, err)
 	})
 }
 
-func TestTransactionManager_Horizon(t *testing.T) {
+func TestTransactionManager_GetActiveTx(t *testing.T) {
+	tm, _ := setup()
+
+	t.Run("it returns a reference to an active transaction", func(t *testing.T) {
+		txOld, _ := tm.BeginTx()
+
+		txNew, _ := tm.GetActiveTx(txOld.ID)
+
+		assert.Equal(t, txOld, txNew)
+	})
+
+	t.Run("it returns error when given transaction is not active", func(t *testing.T) {
+		txOld, _ := tm.BeginTx()
+		_ = txOld.Commit()
+
+		_, err := tm.GetActiveTx(txOld.ID)
+
+		assert.Error(t, err, TransactionNotActiveError)
+	})
+}
+
+func TestTransactionManager_FindTxHorizon(t *testing.T) {
 	tm, _ := setup()
 
 	t.Run("it returns next ID when no transactions are active", func(t *testing.T) {
-		tx1, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
 		_ = tx1.Commit()
 
 		expectedNextID := tx1.ID + 1
@@ -157,9 +178,9 @@ func TestTransactionManager_Horizon(t *testing.T) {
 	})
 
 	t.Run("it returns oldest active transaction ID", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
-		tx3, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
+		tx3, _ := tm.BeginTx()
 
 		assert.Equal(t, tx1.ID, tm.FindTxHorizon())
 
@@ -173,8 +194,8 @@ func TestTransactionManager_Horizon(t *testing.T) {
 	})
 
 	t.Run("it handles out-of-order commits", func(t *testing.T) {
-		tx1, _ := tm.Begin()
-		tx2, _ := tm.Begin()
+		tx1, _ := tm.BeginTx()
+		tx2, _ := tm.BeginTx()
 
 		_ = tx2.Commit()
 		assert.Equal(t, tx1.ID, tm.FindTxHorizon())
