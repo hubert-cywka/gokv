@@ -2,7 +2,7 @@ package mvcc
 
 import (
 	"errors"
-	"kv/assert"
+	"kv/test/assert"
 	"sync"
 	"sync/atomic"
 	"testing"

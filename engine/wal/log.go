@@ -3,7 +3,6 @@ package wal
 import (
 	"fmt"
 	"io"
-	"kv/storage"
 	"path/filepath"
 )
 
@@ -29,7 +28,7 @@ func NewLog(manifest *Manifest, options LogOptions) (*Log, error) {
 		activeSegmentOffset: 0,
 	}
 
-	if err := storage.EnsureDirectoryExists(options.LogsDirectory); err != nil {
+	if err := ensureDirectoryExists(options.LogsDirectory); err != nil {
 		return nil, err
 	}
 

@@ -2,7 +2,7 @@ package record
 
 import (
 	"bytes"
-	"kv/assert"
+	"kv/test/assert"
 	"testing"
 )
 

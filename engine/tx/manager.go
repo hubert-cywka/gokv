@@ -5,12 +5,13 @@ import (
 	"kv/engine/wal/record"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type ManagerOptions struct {
 	ReservedIDsPerBatch   uint64
 	MaxActiveTransactions uint16
-	TimeoutMs             uint32
+	Timeout               time.Duration
 }
 
 type Manager struct {
@@ -54,7 +55,7 @@ func (tm *Manager) BeginTx() (*Transaction, error) {
 
 	tx := newTransaction(txID, tm, snapshot)
 	tx.snapshot.setActive(txID) // That's a bit stupid
-	tx.abortAfter(tm.options.TimeoutMs)
+	tx.abortAfter(tm.options.Timeout)
 
 	tm.trackActive(tx)
 	return tx, nil

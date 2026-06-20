@@ -3,10 +3,9 @@ package wal
 import (
 	"bytes"
 	"fmt"
-	"kv/assert"
 	"kv/engine/wal/record"
-	"kv/observability"
-	"kv/storage/mocks"
+	"kv/test/assert"
+	"kv/test/mocks"
 	"strconv"
 	"sync"
 	"testing"
@@ -14,8 +13,6 @@ import (
 )
 
 func TestWriteAheadLog_Append(t *testing.T) {
-	observability.DisableLogging()
-
 	commitWaitTime := time.Millisecond
 	opts := Options{
 		BatchCommitWaitTime: commitWaitTime,

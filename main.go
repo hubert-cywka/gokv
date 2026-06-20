@@ -2,14 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"kv/api/repl"
 	"kv/engine"
 	"kv/engine/mvcc"
-	"kv/engine/tx"
-	"kv/engine/wal"
-	"kv/kvstore"
-	"kv/observability"
-	"kv/storage"
 	"os"
 	"path/filepath"
 
@@ -18,14 +13,22 @@ import (
 )
 
 func main() {
-	observability.SetLoggingLevel(zerolog.InfoLevel)
+	setLoggingLevel(zerolog.InfoLevel)
+	cfg := DefaultConfig()
 
-	if err := run(DefaultConfig()); err != nil {
+	mode, err := parseStartMode(os.Args[1:])
+	if err != nil {
+		log.Fatal().Err(err).Msg("invalid startup mode")
+	}
+
+	if err := run(cfg, mode); err != nil {
 		log.Fatal().Err(err).Msg("application startup failed")
 	}
 }
 
-func run(cfg Config) (err error) {
+func run(cfg Config, mode StartMode) (err error) {
+	RegisterCoreCommandDefinitions()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -56,86 +59,17 @@ func run(cfg Config) (err error) {
 	vacuumer := engine.NewVacuumer(versionMap, writeAheadLog)
 	vacuumer.RunOnInterval(txManager, cfg.VacuumInterval, ctx)
 
-	return startRepl(txManager, kvStore)
-}
-
-func bootstrapWriteAheadLog(cfg Config, closers *Disposer) (*wal.WriteAheadLog, error) {
-	logManifestFile, err := openFile(cfg.LogManifestPath, os.O_RDWR|os.O_CREATE)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open log manifest: %w", err)
-	}
-	closers.Track(logManifestFile)
-
-	logManifest := wal.NewManifest(logManifestFile)
-
-	logOptions := wal.LogOptions{
-		LogsDirectory: cfg.LogDir,
-		SegmentSize:   cfg.LogSegmentSize,
+	if mode == StartModeRepl {
+		return repl.Start(txManager, kvStore)
 	}
 
-	logStream, err := wal.NewLog(logManifest, logOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create log stream: %w", err)
-	}
-	closers.Track(logStream)
-
-	writeAheadLog := wal.NewWriteAheadLog(wal.Options{
-		WriterBufferSize:    cfg.WalBufferSize,
-		BatchCommitWaitTime: cfg.WalCommitWait,
-	}, logStream)
-
-	closers.Track(writeAheadLog)
-
-	return writeAheadLog, nil
-}
-
-func bootstrapTxManager(walAppender wal.Appender, cfg Config, closers *Disposer) (*tx.Manager, error) {
-	tmManifestFile, err := openFile(cfg.TxManifestPath, os.O_RDWR|os.O_CREATE)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open tx manifest: %w", err)
-	}
-	closers.Track(tmManifestFile)
-
-	txManifest := tx.NewManifest(tmManifestFile)
-
-	manager := tx.NewManager(txManifest, walAppender, tx.ManagerOptions{
-		ReservedIDsPerBatch:   cfg.ReservedTxIDsPerBatch,
-		MaxActiveTransactions: cfg.MaxActiveTx,
-		TimeoutMs:             cfg.TxTimeoutMs,
-	})
-
-	return manager, nil
-}
-
-func bootstrapKVStore(
-	versionMap *mvcc.VersionMap,
-	walReplayer wal.Replayer,
-	walAppender wal.Appender,
-	cfg Config,
-) (*kvstore.KVStore, error) {
-	mvccStore := mvcc.NewStore(versionMap)
-	recoveryManager := engine.NewRecoveryManager(versionMap, walReplayer)
-
-	if err := recoveryManager.Run(); err != nil {
-		return nil, fmt.Errorf("recovery failed: %w", err)
-	}
-
-	storageEngine := engine.New(mvccStore, walAppender)
-
-	kvOptions := kvstore.Options{
-		Validation: kvstore.ValidationOptions{
-			MaxKeySize:   cfg.MaxKeySize,
-			MaxValueSize: cfg.MaxValueSize,
-		},
-	}
-
-	return kvstore.New(storageEngine, kvOptions), nil
+	return nil
 }
 
 func openFile(filename string, flag int) (*os.File, error) {
 	dir := filepath.Dir(filename)
 
-	if err := storage.EnsureDirectoryExists(dir); err != nil {
+	if err := ensureDirectoryExists(dir); err != nil {
 		return nil, err
 	}
 
@@ -146,4 +80,8 @@ func openFile(filename string, flag int) (*os.File, error) {
 	}
 
 	return file, nil
+}
+
+func ensureDirectoryExists(directory string) error {
+	return os.MkdirAll(directory, 0755)
 }

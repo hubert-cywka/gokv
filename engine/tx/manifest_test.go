@@ -1,9 +1,9 @@
 package tx
 
 import (
-	"kv/assert"
 	"kv/statefile"
-	"kv/storage/mocks"
+	"kv/test/assert"
+	"kv/test/mocks"
 	"testing"
 )
 

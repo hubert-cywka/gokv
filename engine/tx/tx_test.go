@@ -1,10 +1,10 @@
 package tx
 
 import (
-	"kv/assert"
 	"kv/engine/internal/mocks"
 	"kv/engine/wal/record"
-	storagemocks "kv/storage/mocks"
+	"kv/test/assert"
+	storagemocks "kv/test/mocks"
 	"testing"
 	"time"
 )
@@ -251,7 +251,7 @@ func setup() (*Manager, *mocks.MockAppender) {
 	return NewManager(manifest, appender, ManagerOptions{
 		ReservedIDsPerBatch:   5,
 		MaxActiveTransactions: 100,
-		TimeoutMs:             1000,
+		Timeout:               5 * time.Second,
 	}), appender
 }
 

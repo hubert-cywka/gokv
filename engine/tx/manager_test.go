@@ -1,10 +1,11 @@
 package tx
 
 import (
-	"kv/assert"
 	"kv/engine/internal/mocks"
-	storagemocks "kv/storage/mocks"
+	"kv/test/assert"
+	storagemocks "kv/test/mocks"
 	"testing"
+	"time"
 )
 
 func TestTransactionManager_BeginTx(t *testing.T) {
@@ -17,7 +18,7 @@ func TestTransactionManager_BeginTx(t *testing.T) {
 	tm := NewManager(manifest, appender, ManagerOptions{
 		ReservedIDsPerBatch:   uint64(reservedIDsPerBatch),
 		MaxActiveTransactions: uint16(maxActiveTx),
-		TimeoutMs:             5000,
+		Timeout:               5 * time.Second,
 	})
 
 	t.Run("it increments transaction IDs", func(t *testing.T) {
