@@ -42,6 +42,7 @@ func (s *Session) commit() error {
 	}
 
 	s.currentTx = nil
+	s.currentTxID = nil
 	return nil
 }
 
@@ -52,5 +53,6 @@ func (s *Session) abort() error {
 
 	s.currentTx.Abort()
 	s.currentTx = nil
+	s.currentTxID = nil
 	return nil
 }

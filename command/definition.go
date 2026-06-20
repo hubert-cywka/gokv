@@ -1,6 +1,7 @@
 package command
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -33,6 +34,10 @@ func Definitions() []*Definition {
 	for _, definition := range definitionsByKeyword {
 		definitions = append(definitions, definition)
 	}
+
+	sort.Slice(definitions, func(i, j int) bool {
+		return definitions[i].Keyword < definitions[j].Keyword
+	})
 
 	return definitions
 }

@@ -73,4 +73,5 @@ func (s *Session) Abort() {
 
 	s.currentTx.Abort()
 	s.currentTx = nil
+	s.currentTxID = nil
 }
