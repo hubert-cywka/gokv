@@ -33,8 +33,8 @@ func (s *Session) begin() error {
 }
 
 func (s *Session) commit() error {
-	if s.currentTx == nil {
-		return ErrNoActiveTransaction
+	if !s.HasCurrentTx() {
+		return ErrOperationOutsideTransaction
 	}
 
 	if err := s.currentTx.Commit(); err != nil {
@@ -47,8 +47,8 @@ func (s *Session) commit() error {
 }
 
 func (s *Session) abort() error {
-	if s.currentTx == nil {
-		return ErrNoActiveTransaction
+	if !s.HasCurrentTx() {
+		return ErrOperationOutsideTransaction
 	}
 
 	s.currentTx.Abort()

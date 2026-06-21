@@ -17,9 +17,9 @@ type Session struct {
 }
 
 var (
-	ErrNoActiveTransaction      = errors.New("no active transaction")
-	ErrTransactionAlreadyActive = errors.New("transaction already active")
-	ErrUnsupportedCommand       = errors.New("unsupported command")
+	ErrOperationOutsideTransaction = errors.New("operations outside transactions are not allowed")
+	ErrTransactionAlreadyActive    = errors.New("transaction already active")
+	ErrUnsupportedCommand          = errors.New("unsupported command")
 )
 
 type ExecutionOptions struct {
@@ -67,11 +67,15 @@ func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 }
 
 func (s *Session) Abort() {
-	if s.currentTx == nil {
+	if !s.HasCurrentTx() {
 		return
 	}
 
 	s.currentTx.Abort()
 	s.currentTx = nil
 	s.currentTxID = nil
+}
+
+func (s *Session) HasCurrentTx() bool {
+	return s.currentTx != nil
 }
