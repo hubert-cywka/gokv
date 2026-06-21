@@ -13,7 +13,7 @@ func (s *Session) Delete(key string) error {
 }
 
 func (s *Session) set(key string, value []byte) error {
-	if !s.HasCurrentTx() {
+	if !s.hasCurrentTx() {
 		return ErrOperationOutsideTransaction
 	}
 
@@ -21,7 +21,7 @@ func (s *Session) set(key string, value []byte) error {
 }
 
 func (s *Session) get(key string) ([]byte, error) {
-	if !s.HasCurrentTx() {
+	if !s.hasCurrentTx() {
 		return nil, ErrOperationOutsideTransaction
 	}
 
@@ -29,7 +29,7 @@ func (s *Session) get(key string) ([]byte, error) {
 }
 
 func (s *Session) delete(key string) error {
-	if !s.HasCurrentTx() {
+	if !s.hasCurrentTx() {
 		return ErrOperationOutsideTransaction
 	}
 

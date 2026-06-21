@@ -67,7 +67,7 @@ func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 }
 
 func (s *Session) Abort() {
-	if !s.HasCurrentTx() {
+	if !s.hasCurrentTx() {
 		return
 	}
 
@@ -76,6 +76,6 @@ func (s *Session) Abort() {
 	s.currentTxID = nil
 }
 
-func (s *Session) HasCurrentTx() bool {
+func (s *Session) hasCurrentTx() bool {
 	return s.currentTx != nil
 }
