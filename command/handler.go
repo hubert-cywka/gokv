@@ -7,7 +7,6 @@ type ExecutionResult struct {
 }
 
 type TxControl interface {
-	CurrentTxID() *uint64
 	Begin() error
 	Commit() error
 	AbortTx() error

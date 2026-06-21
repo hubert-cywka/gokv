@@ -1,9 +1,5 @@
 package query
 
-func (s *Session) CurrentTxID() *uint64 {
-	return s.currentTxID
-}
-
 func (s *Session) Begin() error {
 	return s.begin()
 }

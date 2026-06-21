@@ -54,13 +54,10 @@ func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 	}
 
 	result := definition.Handler(s, s, cmd)
-	if result.TxID == nil {
-		result.TxID = s.currentTxID
-	}
+	result.TxID = s.currentTxID
 
 	if result.Err != nil && s.options.AbortTransactionOnError {
 		s.Abort()
-		result.TxID = s.currentTxID
 	}
 
 	return result

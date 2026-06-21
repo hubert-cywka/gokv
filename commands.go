@@ -79,30 +79,30 @@ func RegisterCoreCommandDefinitions() {
 
 func handleBegin(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
 	err := tx.Begin()
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Err: err}
+	return command.ExecutionResult{Err: err}
 }
 
 func handleCommit(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
 	err := tx.Commit()
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Err: err}
+	return command.ExecutionResult{Err: err}
 }
 
 func handleAbort(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
 	err := tx.AbortTx()
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Err: err}
+	return command.ExecutionResult{Err: err}
 }
 
 func handleSet(tx command.TxControl, store command.Store, cmd *command.Command) command.ExecutionResult {
 	err := store.Set(string(cmd.Arguments[0]), cmd.Arguments[1])
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Err: err}
+	return command.ExecutionResult{Err: err}
 }
 
 func handleGet(tx command.TxControl, store command.Store, cmd *command.Command) command.ExecutionResult {
 	value, err := store.Get(string(cmd.Arguments[0]))
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Value: value, Err: err}
+	return command.ExecutionResult{Value: value, Err: err}
 }
 
 func handleDelete(tx command.TxControl, store command.Store, cmd *command.Command) command.ExecutionResult {
 	err := store.Delete(string(cmd.Arguments[0]))
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Err: err}
+	return command.ExecutionResult{Err: err}
 }

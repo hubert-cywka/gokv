@@ -215,5 +215,5 @@ func registerTestCommandDefinitions() {
 }
 
 func handleNoOp(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
-	return command.ExecutionResult{TxID: tx.CurrentTxID(), Err: nil}
+	return command.ExecutionResult{Err: nil}
 }
