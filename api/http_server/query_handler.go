@@ -35,9 +35,9 @@ func createQueryHandler(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx con
 			return
 		}
 
-		req, err := decode[queryRequest](r)
-		if err != nil {
-			_ = encode(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		req, sessionErr := decode[queryRequest](r)
+		if sessionErr != nil {
+			_ = encode(w, http.StatusBadRequest, map[string]string{"error": sessionErr.Error()})
 			return
 		}
 
@@ -46,19 +46,19 @@ func createQueryHandler(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx con
 			return
 		}
 
-		commands, parseErr := parseStatemens(req.Statements)
+		commands, parseErr := parser.ParseBulk(req.Statements)
 		if parseErr != nil {
 			_ = encode(w, http.StatusBadRequest, map[string]string{"error": parseErr.Error()})
 			return
 		}
 
-		session, err := query.NewSession(txManager, kvStore, req.TxID)
-		if err != nil {
+		session, sessionErr := query.NewSession(txManager, kvStore, req.TxID)
+		if sessionErr != nil {
 			status := http.StatusInternalServerError
-			if errors.Is(err, tx.TransactionNotActiveError) {
+			if errors.Is(sessionErr, tx.TransactionNotActiveError) {
 				status = http.StatusBadRequest
 			}
-			_ = encode(w, status, map[string]string{"error": err.Error()})
+			_ = encode(w, status, map[string]string{"error": sessionErr.Error()})
 			return
 		}
 
@@ -69,35 +69,23 @@ func createQueryHandler(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx con
 	return http.HandlerFunc(handler)
 }
 
-func parseStatemens(statements []string) ([]*command.Command, error) {
-	commands := make([]*command.Command, len(statements))
-	for i, statement := range statements {
-		cmd, parseErr := parser.Parse(statement)
-		if parseErr != nil {
-			return nil, parseErr
-		}
-		commands[i] = cmd
-	}
-
-	return commands, nil
-}
-
 func executeCommands(session *query.Session, commands []*command.Command) []queryResult {
-	results := make([]queryResult, len(commands))
-	for i, cmd := range commands {
-		execResult := session.Execute(cmd)
-		results[i].OK = execResult.Err == nil
-		results[i].TxID = execResult.TxID
+	queryResults := make([]queryResult, len(commands))
+
+	execResults := session.ExecuteBulk(commands)
+	for i, execResult := range execResults {
+		queryResults[i].OK = execResult.Err == nil
+		queryResults[i].TxID = execResult.TxID
 
 		if execResult.Value != nil {
 			value := string(execResult.Value)
-			results[i].Value = &value
+			queryResults[i].Value = &value
 		}
 
 		if execResult.Err != nil {
-			results[i].Error = execResult.Err.Error()
+			queryResults[i].Error = execResult.Err.Error()
 		}
 	}
 
-	return results
+	return queryResults
 }

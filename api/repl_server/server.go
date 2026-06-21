@@ -21,10 +21,7 @@ func Start(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx context.Context)
 	}
 
 	log.Info().Msg("repl server started")
-
 	printHelp()
-	fmt.Println("Enter a command:")
-	fmt.Println()
 
 	reader := bufio.NewScanner(os.Stdin)
 

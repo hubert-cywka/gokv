@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"kv/api/http_server"
 	"kv/api/repl_server"
 	"kv/engine"
 	"kv/engine/mvcc"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -72,33 +69,8 @@ func run(cfg Config, mode StartMode, ctx context.Context) (err error) {
 		return repl_server.Start(txManager, kvStore, ctx)
 	}
 
-	// TODO: Auth
-	// TODO: Clean up
 	if mode == StartModeHTTP {
-		handler := http_server.NewServer(txManager, kvStore, ctx)
-		server := &http.Server{Addr: cfg.HTTPAddress, Handler: handler}
-
-		errCh := make(chan error, 1)
-		go func() {
-			log.Info().Msg("http server started")
-			errCh <- server.ListenAndServe()
-		}()
-
-		select {
-		case <-ctx.Done():
-			shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancelShutdown()
-			if err := server.Shutdown(shutdownCtx); err != nil {
-				return err
-			}
-			log.Info().Msg("http server closed")
-			return nil
-		case err := <-errCh:
-			if errors.Is(err, http.ErrServerClosed) {
-				return nil
-			}
-			return err
-		}
+		return http_server.Start(cfg.HTTPAddress, txManager, kvStore, ctx)
 	}
 
 	return nil

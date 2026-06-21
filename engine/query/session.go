@@ -41,6 +41,18 @@ func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64) (
 	return session, nil
 }
 
+func (s *Session) ExecuteBulk(commands []*command.Command) []command.ExecutionResult {
+	results := make([]command.ExecutionResult, len(commands))
+	for i, cmd := range commands {
+		results[i] = s.Execute(cmd)
+		if results[i].Err != nil {
+			break
+		}
+	}
+
+	return results
+}
+
 func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 	definition := command.DefinitionByKeyword(cmd.Keyword)
 	if definition == nil || definition.Handler == nil {
