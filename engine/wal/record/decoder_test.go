@@ -3,8 +3,8 @@ package record
 import (
 	"bytes"
 	"io"
-	"kv/assert"
 	"kv/conversion"
+	"kv/test/assert"
 	"testing"
 )
 

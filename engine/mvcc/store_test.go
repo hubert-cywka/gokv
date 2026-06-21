@@ -1,7 +1,7 @@
 package mvcc
 
 import (
-	"kv/assert"
+	"kv/test/assert"
 	"testing"
 )
 

@@ -1,12 +1,12 @@
 package engine
 
 import (
-	"kv/assert"
 	"kv/engine/internal/mocks"
 	"kv/engine/mvcc"
 	"kv/engine/tx"
 	"kv/engine/wal/record"
-	storagemocks "kv/storage/mocks"
+	"kv/test/assert"
+	storagemocks "kv/test/mocks"
 	"testing"
 )
 
@@ -252,7 +252,7 @@ func TestVacuumer_Vacuum(t *testing.T) {
 }
 
 func beginTransaction(t *testing.T, txManager *tx.Manager) *tx.Transaction {
-	transaction, err := txManager.Begin()
+	transaction, err := txManager.BeginTx()
 	assert.NoError(t, err)
 	return transaction
 }
@@ -265,7 +265,7 @@ func setupTxManager() *tx.Manager {
 	return tx.NewManager(manifest, writeAheadLog, tx.ManagerOptions{
 		ReservedIDsPerBatch:   1000,
 		MaxActiveTransactions: 1000,
-		TimeoutMs:             5000,
+		Timeout:               5000,
 	})
 }
 

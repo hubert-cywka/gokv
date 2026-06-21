@@ -1,7 +1,7 @@
 package record
 
 import (
-	"kv/assert"
+	"kv/test/assert"
 	"testing"
 )
 

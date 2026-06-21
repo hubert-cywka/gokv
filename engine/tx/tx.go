@@ -85,12 +85,12 @@ func (tx *Transaction) Abort() {
 	})
 }
 
-func (tx *Transaction) abortAfter(durationMs uint32) {
+func (tx *Transaction) abortAfter(duration time.Duration) {
 	tx.mutex.Lock()
 	defer tx.mutex.Unlock()
 
 	tx.stopPendingAbortTimer()
-	tx.abortTimer = time.AfterFunc(time.Duration(durationMs)*time.Millisecond, tx.Abort)
+	tx.abortTimer = time.AfterFunc(duration, tx.Abort)
 }
 
 func (tx *Transaction) stopPendingAbortTimer() {

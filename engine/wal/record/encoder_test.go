@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"kv/assert"
+	"kv/test/assert"
 	"testing"
 )
 

@@ -1,11 +1,12 @@
 package mvcc
 
 import (
-	"kv/assert"
 	"kv/engine/internal/mocks"
 	"kv/engine/tx"
-	storagemocks "kv/storage/mocks"
+	"kv/test/assert"
+	storagemocks "kv/test/mocks"
 	"testing"
+	"time"
 )
 
 func AssertFrozen(t *testing.T, e *Version) {
@@ -33,7 +34,7 @@ func AssertNotPruned(t *testing.T, e *Version) {
 }
 
 func beginTransaction(t *testing.T, txManager *tx.Manager) *tx.Transaction {
-	transaction, err := txManager.Begin()
+	transaction, err := txManager.BeginTx()
 	assert.NoError(t, err)
 	return transaction
 }
@@ -46,7 +47,7 @@ func setupTxManager() *tx.Manager {
 	return tx.NewManager(manifest, writeAheadLog, tx.ManagerOptions{
 		ReservedIDsPerBatch:   1000,
 		MaxActiveTransactions: 1000,
-		TimeoutMs:             5000,
+		Timeout:               5 * time.Second,
 	})
 }
 

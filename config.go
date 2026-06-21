@@ -8,7 +8,7 @@ type Config struct {
 	TxManifestPath        string
 	ReservedTxIDsPerBatch uint64
 	MaxActiveTx           uint16
-	TxTimeoutMs           uint32
+	TxTimeout             time.Duration
 
 	MaxKeySize   int
 	MaxValueSize int
@@ -27,7 +27,7 @@ func DefaultConfig() Config {
 		TxManifestPath:        "./data/transactions/manifest.json",
 		ReservedTxIDsPerBatch: 1000,
 		MaxActiveTx:           100,
-		TxTimeoutMs:           10000,
+		TxTimeout:             60 * time.Second,
 
 		MaxKeySize:   1024,
 		MaxValueSize: 128 * 1024,

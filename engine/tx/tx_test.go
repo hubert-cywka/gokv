@@ -1,10 +1,10 @@
 package tx
 
 import (
-	"kv/assert"
 	"kv/engine/internal/mocks"
 	"kv/engine/wal/record"
-	storagemocks "kv/storage/mocks"
+	"kv/test/assert"
+	storagemocks "kv/test/mocks"
 	"testing"
 	"time"
 )
@@ -13,7 +13,7 @@ func TestTransaction_Commit(t *testing.T) {
 	tm, appender := setup()
 
 	t.Run("it appends 'commit' record", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		err = tx.Commit()
@@ -26,7 +26,7 @@ func TestTransaction_Commit(t *testing.T) {
 	})
 
 	t.Run("it stops transaction", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 		assert.True(t, tm.isActive(tx.ID))
 
@@ -41,7 +41,7 @@ func TestTransaction_Abort(t *testing.T) {
 	tm, _ := setup()
 
 	setupTx := func(t *testing.T) (*Transaction, version) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 		newVersion := newMockVersion("key", []byte("value"), IdFrozen)
 		return tx, newVersion
@@ -69,7 +69,7 @@ func TestTransaction_Abort(t *testing.T) {
 	})
 
 	t.Run("it removes tracked added records", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		newVersion := newMockVersion("key", []byte("value"), tx.ID)
@@ -100,7 +100,7 @@ func TestTransaction_AbortAfter(t *testing.T) {
 	tm, _ := setup()
 
 	setupTx := func(t *testing.T) (*Transaction, version) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 		newVersion := newMockVersion("key", []byte("value"), IdFrozen)
 		return tx, newVersion
@@ -136,7 +136,7 @@ func TestTransaction_CanSee(t *testing.T) {
 	tm, _ := setup()
 
 	t.Run("it can see frozen transactions", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		got := tx.CanSee(IdFrozen, IdAlive)
@@ -145,7 +145,7 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it can see its own inserts", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		got := tx.CanSee(tx.ID, IdAlive)
@@ -154,7 +154,7 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it does not see its own deletes", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		got := tx.CanSee(tx.ID, tx.ID)
@@ -163,9 +163,9 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it cannot see uncommitted transaction", func(t *testing.T) {
-		active, err := tm.Begin()
+		active, err := tm.BeginTx()
 		assert.NoError(t, err)
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		got := tx.CanSee(active.ID, IdAlive)
@@ -174,13 +174,13 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it ignores deletes from uncommitted transaction", func(t *testing.T) {
-		creator, err := tm.Begin()
+		creator, err := tm.BeginTx()
 		assert.NoError(t, err)
 		_ = creator.Commit()
 
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
-		deleter, err := tm.Begin()
+		deleter, err := tm.BeginTx()
 		assert.NoError(t, err)
 
 		got := tx.CanSee(creator.ID, deleter.ID)
@@ -189,11 +189,11 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it can see inserts committed before snapshot", func(t *testing.T) {
-		old, err := tm.Begin()
+		old, err := tm.BeginTx()
 		assert.NoError(t, err)
 		_ = old.Commit()
 		assert.NoError(t, err)
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 
 		got := tx.CanSee(old.ID, IdAlive)
 
@@ -201,9 +201,9 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it cannot see inserts committed after snapshot", func(t *testing.T) {
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
-		other, err := tm.Begin()
+		other, err := tm.BeginTx()
 		assert.NoError(t, err)
 		_ = other.Commit()
 
@@ -213,12 +213,12 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it ignores deletes started before and committed after snapshot", func(t *testing.T) {
-		creator, err := tm.Begin()
+		creator, err := tm.BeginTx()
 		_ = creator.Commit()
 		assert.NoError(t, err)
-		deleter, err := tm.Begin()
+		deleter, err := tm.BeginTx()
 		assert.NoError(t, err)
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
 		_ = deleter.Commit()
 
@@ -228,12 +228,12 @@ func TestTransaction_CanSee(t *testing.T) {
 	})
 
 	t.Run("it ignores deletes started and committed after snapshot", func(t *testing.T) {
-		creator, err := tm.Begin()
+		creator, err := tm.BeginTx()
 		assert.NoError(t, err)
 		_ = creator.Commit()
-		tx, err := tm.Begin()
+		tx, err := tm.BeginTx()
 		assert.NoError(t, err)
-		deleter, err := tm.Begin()
+		deleter, err := tm.BeginTx()
 		assert.NoError(t, err)
 		_ = deleter.Commit()
 
@@ -251,7 +251,7 @@ func setup() (*Manager, *mocks.MockAppender) {
 	return NewManager(manifest, appender, ManagerOptions{
 		ReservedIDsPerBatch:   5,
 		MaxActiveTransactions: 100,
-		TimeoutMs:             1000,
+		Timeout:               5 * time.Second,
 	}), appender
 }
 
