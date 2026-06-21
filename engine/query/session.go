@@ -10,7 +10,6 @@ import (
 type Session struct {
 	txManager *tx.Manager
 	kvStore   *kvstore.KVStore
-	options   ExecutionOptions
 
 	currentTx   *tx.Transaction
 	currentTxID *uint64
@@ -22,15 +21,10 @@ var (
 	ErrUnsupportedCommand          = errors.New("unsupported command")
 )
 
-type ExecutionOptions struct {
-	AbortTransactionOnError bool
-}
-
-func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64, options ExecutionOptions) (*Session, error) {
+func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64) (*Session, error) {
 	session := &Session{
 		txManager:   txManager,
 		kvStore:     kvStore,
-		options:     options,
 		currentTxID: txID,
 	}
 
@@ -56,7 +50,7 @@ func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 	result := definition.Handler(s, s, cmd)
 	result.TxID = s.currentTxID
 
-	if result.Err != nil && s.options.AbortTransactionOnError {
+	if result.Err != nil {
 		s.Abort()
 	}
 

@@ -2,35 +2,44 @@ package main
 
 import (
 	"context"
-	"kv/api/repl"
+	"errors"
+	"kv/api/http_server"
+	"kv/api/repl_server"
 	"kv/engine"
 	"kv/engine/mvcc"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	setLoggingLevel(zerolog.InfoLevel)
+	ctx := context.Background()
 	cfg := DefaultConfig()
+
+	setLoggingLevel(zerolog.InfoLevel)
 
 	mode, err := parseStartMode(os.Args[1:])
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid startup mode")
 	}
 
-	if err := run(cfg, mode); err != nil {
+	if err := run(cfg, mode, ctx); err != nil {
 		log.Fatal().Err(err).Msg("application startup failed")
 	}
+
+	log.Info().Msg("application closed")
 }
 
-func run(cfg Config, mode StartMode) (err error) {
-	RegisterCoreCommandDefinitions()
-
-	ctx, cancel := context.WithCancel(context.Background())
+func run(cfg Config, mode StartMode, ctx context.Context) (err error) {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
+
+	RegisterCoreCommandDefinitions()
 
 	var closers Disposer
 	defer func() {
@@ -60,7 +69,36 @@ func run(cfg Config, mode StartMode) (err error) {
 	vacuumer.RunOnInterval(txManager, cfg.VacuumInterval, ctx)
 
 	if mode == StartModeRepl {
-		return repl.Start(txManager, kvStore)
+		return repl_server.Start(txManager, kvStore, ctx)
+	}
+
+	// TODO: Auth
+	// TODO: Clean up
+	if mode == StartModeHTTP {
+		handler := http_server.NewServer(txManager, kvStore, ctx)
+		server := &http.Server{Addr: cfg.HTTPAddress, Handler: handler}
+
+		errCh := make(chan error, 1)
+		go func() {
+			log.Info().Msg("http server started")
+			errCh <- server.ListenAndServe()
+		}()
+
+		select {
+		case <-ctx.Done():
+			shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancelShutdown()
+			if err := server.Shutdown(shutdownCtx); err != nil {
+				return err
+			}
+			log.Info().Msg("http server closed")
+			return nil
+		case err := <-errCh:
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return err
+		}
 	}
 
 	return nil
