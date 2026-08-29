@@ -10,7 +10,6 @@ import (
 type Session struct {
 	txManager *tx.Manager
 	kvStore   *kvstore.KVStore
-	options   ExecutionOptions
 
 	currentTx   *tx.Transaction
 	currentTxID *uint64
@@ -22,15 +21,10 @@ var (
 	ErrUnsupportedCommand          = errors.New("unsupported command")
 )
 
-type ExecutionOptions struct {
-	AbortTransactionOnError bool
-}
-
-func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64, options ExecutionOptions) (*Session, error) {
+func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64) (*Session, error) {
 	session := &Session{
 		txManager:   txManager,
 		kvStore:     kvStore,
-		options:     options,
 		currentTxID: txID,
 	}
 
@@ -47,6 +41,18 @@ func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64, o
 	return session, nil
 }
 
+func (s *Session) ExecuteBulk(commands []*command.Command) []command.ExecutionResult {
+	results := make([]command.ExecutionResult, len(commands))
+	for i, cmd := range commands {
+		results[i] = s.Execute(cmd)
+		if results[i].Err != nil {
+			break
+		}
+	}
+
+	return results
+}
+
 func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 	definition := command.DefinitionByKeyword(cmd.Keyword)
 	if definition == nil || definition.Handler == nil {
@@ -56,7 +62,7 @@ func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
 	result := definition.Handler(s, s, cmd)
 	result.TxID = s.currentTxID
 
-	if result.Err != nil && s.options.AbortTransactionOnError {
+	if result.Err != nil {
 		s.Abort()
 	}
 

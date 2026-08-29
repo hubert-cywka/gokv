@@ -1,7 +1,8 @@
-package repl
+package repl_server
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"kv/command"
 	"kv/engine/query"
@@ -9,61 +10,81 @@ import (
 	"kv/kvstore"
 	"kv/parser"
 	"os"
+
+	"github.com/rs/zerolog/log"
 )
 
-func Start(txManager *tx.Manager, kvStore *kvstore.KVStore) error {
-	reader := bufio.NewScanner(os.Stdin)
-
-	session, err := query.NewSession(txManager, kvStore, nil, query.ExecutionOptions{AbortTransactionOnError: false})
+func Start(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx context.Context) error {
+	session, err := query.NewSession(txManager, kvStore, nil)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println()
-	fmt.Println("KV server started.")
+	log.Info().Msg("repl server started")
 	printHelp()
-	fmt.Println("Enter a command:")
-	fmt.Println()
 
-	running := true
+	reader := bufio.NewScanner(os.Stdin)
 
-	for running {
+	lines := make(chan string)
+	scanErr := make(chan error, 1)
+
+	go func() {
+		defer close(lines)
+
+		for reader.Scan() {
+			lines <- reader.Text()
+		}
+
+		scanErr <- reader.Err()
+		close(scanErr)
+	}()
+
+	for {
 		fmt.Print("> ")
 
-		if !reader.Scan() {
-			return reader.Err()
-		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 
-		cmd, err := parser.Parse(reader.Text())
-		if err != nil {
-			fmt.Println("ERR:", err)
-			continue
-		}
-
-		result := session.Execute(cmd)
-		if result.Err != nil {
-			fmt.Println("ERR:", result.Err)
-			continue
-		}
-
-		if cmd.Keyword == "GET" {
-			if result.Value == nil {
-				fmt.Println("(nil)")
-			} else {
-				fmt.Println(string(result.Value))
+		case err := <-scanErr:
+			if err != nil {
+				return err
 			}
-			continue
-		}
+			return nil
 
-		if cmd.Keyword == "TXBEGIN" && result.TxID != nil {
-			fmt.Printf("OK (tx %d started)\n", *result.TxID)
-			continue
-		}
+		case line, ok := <-lines:
+			if !ok {
+				return nil
+			}
 
-		fmt.Println("OK")
+			cmd, err := parser.Parse(line)
+			if err != nil {
+				fmt.Println("ERR:", err)
+				continue
+			}
+
+			result := session.Execute(cmd)
+			if result.Err != nil {
+				fmt.Println("ERR:", result.Err)
+				continue
+			}
+
+			switch {
+			case cmd.Keyword == "GET":
+				if result.Value == nil {
+					fmt.Println("(nil)")
+				} else {
+					fmt.Println(string(result.Value))
+				}
+
+			case cmd.Keyword == "TXBEGIN" && result.TxID != nil:
+				fmt.Printf("OK (tx %d started)\n", *result.TxID)
+
+			default:
+				fmt.Println("OK")
+			}
+		}
 	}
-
-	return nil
 }
 
 func printHelp() {

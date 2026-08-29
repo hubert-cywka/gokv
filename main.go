@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"kv/api/repl"
+	"kv/api/http_server"
+	"kv/api/repl_server"
 	"kv/engine"
 	"kv/engine/mvcc"
 	"os"
+	"os/signal"
 	"path/filepath"
 
 	"github.com/rs/zerolog"
@@ -13,24 +15,28 @@ import (
 )
 
 func main() {
-	setLoggingLevel(zerolog.InfoLevel)
+	ctx := context.Background()
 	cfg := DefaultConfig()
+
+	setLoggingLevel(zerolog.InfoLevel)
 
 	mode, err := parseStartMode(os.Args[1:])
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid startup mode")
 	}
 
-	if err := run(cfg, mode); err != nil {
+	if err := run(cfg, mode, ctx); err != nil {
 		log.Fatal().Err(err).Msg("application startup failed")
 	}
+
+	log.Info().Msg("application closed")
 }
 
-func run(cfg Config, mode StartMode) (err error) {
-	RegisterCoreCommandDefinitions()
-
-	ctx, cancel := context.WithCancel(context.Background())
+func run(cfg Config, mode StartMode, ctx context.Context) (err error) {
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
+
+	RegisterCoreCommandDefinitions()
 
 	var closers Disposer
 	defer func() {
@@ -60,7 +66,11 @@ func run(cfg Config, mode StartMode) (err error) {
 	vacuumer.RunOnInterval(txManager, cfg.VacuumInterval, ctx)
 
 	if mode == StartModeRepl {
-		return repl.Start(txManager, kvStore)
+		return repl_server.Start(txManager, kvStore, ctx)
+	}
+
+	if mode == StartModeHTTP {
+		return http_server.Start(cfg.HTTPAddress, txManager, kvStore, ctx)
 	}
 
 	return nil

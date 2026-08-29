@@ -4,6 +4,7 @@ import "time"
 
 type Config struct {
 	VacuumInterval time.Duration
+	HTTPAddress    string
 
 	TxManifestPath        string
 	ReservedTxIDsPerBatch uint64
@@ -23,6 +24,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		VacuumInterval: 120 * time.Second,
+		HTTPAddress:    ":8080",
 
 		TxManifestPath:        "./data/transactions/manifest.json",
 		ReservedTxIDsPerBatch: 1000,

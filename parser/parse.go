@@ -10,6 +10,19 @@ var InvalidCommandError = errors.New("invalid command")
 var InvalidNumberOfTokens = errors.New("invalid number of tokens")
 var InvalidArgument = errors.New("invalid argument")
 
+func ParseBulk(inputs []string) ([]*command.Command, error) {
+	commands := make([]*command.Command, len(inputs))
+	for i, input := range inputs {
+		cmd, parseErr := Parse(input)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		commands[i] = cmd
+	}
+
+	return commands, nil
+}
+
 func Parse(input string) (*command.Command, error) {
 	trimmedInput := strings.TrimSpace(input)
 	if trimmedInput == "" {
