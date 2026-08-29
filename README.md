@@ -2,7 +2,7 @@ Plain simple in-memory KV store. Supports MVCC and transactions. Copy of data is
 
 # REPL
 
-Run `go run . --repl` to start REPL.
+Run `go run . --mode=repl` to start REPL.
 
 ```
 AVAILABLE COMMANDS
@@ -19,7 +19,7 @@ Name                     | Usage                   | Description
 
 # HTTP API
 
-Run `go run . --http` to start HTTP API server (default address: `:8080`).
+Run `go run . --mode=http` to start HTTP API server (default address: `:8080`).
 
 HTTP endpoint:
 - `POST /query`
