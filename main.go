@@ -4,6 +4,7 @@ import (
 	"context"
 	"kv/api/http_server"
 	"kv/api/repl_server"
+	"kv/cli"
 	"kv/engine"
 	"kv/engine/mvcc"
 	"os"
@@ -20,9 +21,9 @@ func main() {
 
 	setLoggingLevel(zerolog.InfoLevel)
 
-	mode, err := parseStartMode(os.Args[1:])
+	mode, err := cli.ParseStartArguments(os.Args[1:])
 	if err != nil {
-		log.Fatal().Err(err).Msg("invalid startup mode")
+		log.Fatal().Err(err).Msg("invalid start arguments")
 	}
 
 	if err := run(cfg, mode, ctx); err != nil {
@@ -32,7 +33,7 @@ func main() {
 	log.Info().Msg("application closed")
 }
 
-func run(cfg Config, mode StartMode, ctx context.Context) (err error) {
+func run(cfg Config, mode cli.StartMode, ctx context.Context) (err error) {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer cancel()
 
@@ -65,11 +66,11 @@ func run(cfg Config, mode StartMode, ctx context.Context) (err error) {
 	vacuumer := engine.NewVacuumer(versionMap, writeAheadLog)
 	vacuumer.RunOnInterval(txManager, cfg.VacuumInterval, ctx)
 
-	if mode == StartModeRepl {
+	if mode == cli.StartModeRepl {
 		return repl_server.Start(txManager, kvStore, ctx)
 	}
 
-	if mode == StartModeHTTP {
+	if mode == cli.StartModeHTTP {
 		return http_server.Start(cfg.HTTPAddress, txManager, kvStore, ctx)
 	}
 
