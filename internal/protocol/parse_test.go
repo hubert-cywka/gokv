@@ -146,7 +146,6 @@ func registerTestCommandDefinitions() {
 			{Validator: command.KeyValidator{}},
 			{Validator: command.AnyValidator{}},
 		},
-		Handler: handleNoOp,
 		Meta: command.Meta{
 			Name:        "SET",
 			Usage:       "SET <key> <value>",
@@ -159,7 +158,6 @@ func registerTestCommandDefinitions() {
 		Arguments: []command.ArgumentDefinition{
 			{Validator: command.KeyValidator{}},
 		},
-		Handler: handleNoOp,
 		Meta: command.Meta{
 			Name:        "GET",
 			Usage:       "GET <key>",
@@ -172,7 +170,6 @@ func registerTestCommandDefinitions() {
 		Arguments: []command.ArgumentDefinition{
 			{Validator: command.KeyValidator{}},
 		},
-		Handler: handleNoOp,
 		Meta: command.Meta{
 			Name:        "DELETE",
 			Usage:       "DELETE <key>",
@@ -183,7 +180,6 @@ func registerTestCommandDefinitions() {
 	command.RegisterDefinition(&command.Definition{
 		Keyword:   "TXBEGIN",
 		Arguments: nil,
-		Handler:   handleNoOp,
 		Meta: command.Meta{
 			Name:        "TXBEGIN",
 			Usage:       "TXBEGIN",
@@ -194,7 +190,6 @@ func registerTestCommandDefinitions() {
 	command.RegisterDefinition(&command.Definition{
 		Keyword:   "TXCOMMIT",
 		Arguments: nil,
-		Handler:   handleNoOp,
 		Meta: command.Meta{
 			Name:        "TXCOMMIT",
 			Usage:       "TXCOMMIT",
@@ -205,15 +200,10 @@ func registerTestCommandDefinitions() {
 	command.RegisterDefinition(&command.Definition{
 		Keyword:   "TXABORT",
 		Arguments: nil,
-		Handler:   handleNoOp,
 		Meta: command.Meta{
 			Name:        "TXABORT",
 			Usage:       "TXABORT",
 			Description: "Abort current transaction",
 		},
 	})
-}
-
-func handleNoOp(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
-	return command.ExecutionResult{Err: nil}
 }

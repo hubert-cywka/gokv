@@ -4,6 +4,7 @@ import (
 	"errors"
 	"kv/internal/command"
 	"kv/internal/engine/tx"
+	"kv/internal/executor"
 	"kv/internal/kvstore"
 )
 
@@ -41,8 +42,8 @@ func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64) (
 	return session, nil
 }
 
-func (s *Session) ExecuteBulk(commands []*command.Command) []command.ExecutionResult {
-	results := make([]command.ExecutionResult, len(commands))
+func (s *Session) ExecuteBulk(commands []*command.Command) []executor.ExecutionResult {
+	results := make([]executor.ExecutionResult, len(commands))
 	for i, cmd := range commands {
 		results[i] = s.Execute(cmd)
 		if results[i].Err != nil {
@@ -53,13 +54,13 @@ func (s *Session) ExecuteBulk(commands []*command.Command) []command.ExecutionRe
 	return results
 }
 
-func (s *Session) Execute(cmd *command.Command) command.ExecutionResult {
-	definition := command.DefinitionByKeyword(cmd.Keyword)
-	if definition == nil || definition.Handler == nil {
-		return command.ExecutionResult{TxID: s.currentTxID, Err: ErrUnsupportedCommand}
+func (s *Session) Execute(cmd *command.Command) executor.ExecutionResult {
+	handler := executor.HandlerByKeyword(cmd.Keyword)
+	if handler == nil {
+		return executor.ExecutionResult{TxID: s.currentTxID, Err: ErrUnsupportedCommand}
 	}
 
-	result := definition.Handler(s, s, cmd)
+	result := handler(s, s, cmd)
 	result.TxID = s.currentTxID
 
 	if result.Err != nil {

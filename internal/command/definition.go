@@ -10,13 +10,10 @@ type Command struct {
 	Arguments [][]byte
 }
 
-// TODO: Split handler from definition
 type Definition struct {
 	Keyword   string
 	Arguments []ArgumentDefinition
-
-	Meta    Meta
-	Handler Handler
+	Meta      Meta
 }
 
 type ArgumentDefinition struct {
@@ -44,11 +41,11 @@ func Definitions() []*Definition {
 }
 
 func DefinitionByKeyword(keyword string) *Definition {
-	return definitionsByKeyword[normalizeKeyword(keyword)]
+	return definitionsByKeyword[NormalizeKeyword(keyword)]
 }
 
 func RegisterDefinition(definition *Definition) {
-	normalizedKeyword := normalizeKeyword(definition.Keyword)
+	normalizedKeyword := NormalizeKeyword(definition.Keyword)
 	definition.Keyword = normalizedKeyword
 	definitionsByKeyword[normalizedKeyword] = definition
 }
@@ -59,6 +56,6 @@ func ResetDefinitions() {
 
 var definitionsByKeyword = map[string]*Definition{}
 
-func normalizeKeyword(keyword string) string {
+func NormalizeKeyword(keyword string) string {
 	return strings.ToUpper(strings.TrimSpace(keyword))
 }

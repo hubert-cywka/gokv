@@ -3,13 +3,13 @@ package executor
 import "kv/internal/command"
 
 func RegisterKVCommands() {
+	RegisterHandler("SET", handleSet)
 	command.RegisterDefinition(&command.Definition{
 		Keyword: "SET",
 		Arguments: []command.ArgumentDefinition{
 			{Validator: command.KeyValidator{}},
 			{Validator: command.AnyValidator{}},
 		},
-		Handler: handleSet,
 		Meta: command.Meta{
 			Name:        "SET",
 			Usage:       "SET <key> <value>",
@@ -17,12 +17,12 @@ func RegisterKVCommands() {
 		},
 	})
 
+	RegisterHandler("GET", handleGet)
 	command.RegisterDefinition(&command.Definition{
 		Keyword: "GET",
 		Arguments: []command.ArgumentDefinition{
 			{Validator: command.KeyValidator{}},
 		},
-		Handler: handleGet,
 		Meta: command.Meta{
 			Name:        "GET",
 			Usage:       "GET <key>",
@@ -30,12 +30,12 @@ func RegisterKVCommands() {
 		},
 	})
 
+	RegisterHandler("DELETE", handleDelete)
 	command.RegisterDefinition(&command.Definition{
 		Keyword: "DELETE",
 		Arguments: []command.ArgumentDefinition{
 			{Validator: command.KeyValidator{}},
 		},
-		Handler: handleDelete,
 		Meta: command.Meta{
 			Name:        "DELETE",
 			Usage:       "DELETE <key>",
@@ -44,17 +44,17 @@ func RegisterKVCommands() {
 	})
 }
 
-func handleSet(tx command.TxControl, store command.Store, cmd *command.Command) command.ExecutionResult {
+func handleSet(tx TxControl, store Store, cmd *command.Command) ExecutionResult {
 	err := store.Set(string(cmd.Arguments[0]), cmd.Arguments[1])
-	return command.ExecutionResult{Err: err}
+	return ExecutionResult{Err: err}
 }
 
-func handleGet(tx command.TxControl, store command.Store, cmd *command.Command) command.ExecutionResult {
+func handleGet(tx TxControl, store Store, cmd *command.Command) ExecutionResult {
 	value, err := store.Get(string(cmd.Arguments[0]))
-	return command.ExecutionResult{Value: value, Err: err}
+	return ExecutionResult{Value: value, Err: err}
 }
 
-func handleDelete(tx command.TxControl, store command.Store, cmd *command.Command) command.ExecutionResult {
+func handleDelete(tx TxControl, store Store, cmd *command.Command) ExecutionResult {
 	err := store.Delete(string(cmd.Arguments[0]))
-	return command.ExecutionResult{Err: err}
+	return ExecutionResult{Err: err}
 }

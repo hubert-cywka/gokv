@@ -3,10 +3,10 @@ package executor
 import "kv/internal/command"
 
 func RegisterTxCommands() {
+	RegisterHandler("TXBEGIN", handleBegin)
 	command.RegisterDefinition(&command.Definition{
 		Keyword:   "TXBEGIN",
 		Arguments: nil,
-		Handler:   handleBegin,
 		Meta: command.Meta{
 			Name:        "TXBEGIN",
 			Usage:       "TXBEGIN",
@@ -14,10 +14,10 @@ func RegisterTxCommands() {
 		},
 	})
 
+	RegisterHandler("TXCOMMIT", handleCommit)
 	command.RegisterDefinition(&command.Definition{
 		Keyword:   "TXCOMMIT",
 		Arguments: nil,
-		Handler:   handleCommit,
 		Meta: command.Meta{
 			Name:        "TXCOMMIT",
 			Usage:       "TXCOMMIT",
@@ -25,10 +25,10 @@ func RegisterTxCommands() {
 		},
 	})
 
+	RegisterHandler("TXABORT", handleAbort)
 	command.RegisterDefinition(&command.Definition{
 		Keyword:   "TXABORT",
 		Arguments: nil,
-		Handler:   handleAbort,
 		Meta: command.Meta{
 			Name:        "TXABORT",
 			Usage:       "TXABORT",
@@ -37,17 +37,17 @@ func RegisterTxCommands() {
 	})
 }
 
-func handleBegin(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
+func handleBegin(tx TxControl, _ Store, _ *command.Command) ExecutionResult {
 	err := tx.Begin()
-	return command.ExecutionResult{Err: err}
+	return ExecutionResult{Err: err}
 }
 
-func handleCommit(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
+func handleCommit(tx TxControl, _ Store, _ *command.Command) ExecutionResult {
 	err := tx.Commit()
-	return command.ExecutionResult{Err: err}
+	return ExecutionResult{Err: err}
 }
 
-func handleAbort(tx command.TxControl, _ command.Store, _ *command.Command) command.ExecutionResult {
+func handleAbort(tx TxControl, _ Store, _ *command.Command) ExecutionResult {
 	err := tx.AbortTx()
-	return command.ExecutionResult{Err: err}
+	return ExecutionResult{Err: err}
 }
