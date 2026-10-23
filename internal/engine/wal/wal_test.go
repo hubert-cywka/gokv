@@ -3,7 +3,7 @@ package wal
 import (
 	"bytes"
 	"fmt"
-	"kv/internal/engine/wal/record"
+	"kv/internal/engine/record"
 	"kv/internal/test/assert"
 	"kv/internal/test/mocks"
 	"strconv"

@@ -2,7 +2,7 @@ package tx
 
 import (
 	"kv/internal/engine/internal/mocks"
-	"kv/internal/engine/wal/record"
+	"kv/internal/engine/record"
 	"kv/internal/test/assert"
 	storagemocks "kv/internal/test/mocks"
 	"testing"

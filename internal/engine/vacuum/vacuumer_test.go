@@ -3,8 +3,8 @@ package vacuum
 import (
 	"kv/internal/engine/internal/mocks"
 	"kv/internal/engine/mvcc"
+	"kv/internal/engine/record"
 	"kv/internal/engine/tx"
-	"kv/internal/engine/wal/record"
 	"kv/internal/test/assert"
 	storagemocks "kv/internal/test/mocks"
 	"testing"

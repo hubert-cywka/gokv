@@ -2,7 +2,7 @@ package record
 
 import (
 	"hash/crc32"
-	"kv/internal/engine/wal/record/conversion"
+	"kv/internal/engine/record/conversion"
 )
 
 const (

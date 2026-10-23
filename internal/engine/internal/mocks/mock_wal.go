@@ -1,8 +1,6 @@
 package mocks
 
-import (
-	"kv/internal/engine/wal/record"
-)
+import "kv/internal/engine/record"
 
 type MockAppender struct {
 	Records []*record.Record

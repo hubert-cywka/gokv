@@ -3,9 +3,8 @@ package vacuum
 import (
 	"context"
 	"kv/internal/engine/mvcc"
+	"kv/internal/engine/record"
 	"kv/internal/engine/tx"
-	"kv/internal/engine/wal"
-	"kv/internal/engine/wal/record"
 	"sync"
 	"time"
 
@@ -15,14 +14,14 @@ import (
 const maxWorkers = 100
 
 type Vacuumer struct {
-	versionMap  *mvcc.VersionMap
-	walAppender wal.Appender
+	versionMap *mvcc.VersionMap
+	appender   record.Appender
 }
 
-func NewVacuumer(versionMap *mvcc.VersionMap, walAppender wal.Appender) *Vacuumer {
+func NewVacuumer(versionMap *mvcc.VersionMap, appender record.Appender) *Vacuumer {
 	return &Vacuumer{
-		versionMap:  versionMap,
-		walAppender: walAppender,
+		versionMap: versionMap,
+		appender:   appender,
 	}
 }
 
@@ -118,7 +117,7 @@ func (v *Vacuumer) canPrune(xMax tx.ID, horizon tx.ID) bool {
 func (v *Vacuumer) freeze(version *mvcc.Version) {
 	freezeRecord := record.NewFreeze(version.Key, version.XMin().Uint64())
 
-	if err := v.walAppender.Append(freezeRecord); err != nil {
+	if err := v.appender.Append(freezeRecord); err != nil {
 		return
 	}
 

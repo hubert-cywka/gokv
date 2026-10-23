@@ -2,9 +2,8 @@ package kvstore
 
 import (
 	"kv/internal/engine/mvcc"
+	"kv/internal/engine/record"
 	"kv/internal/engine/tx"
-	"kv/internal/engine/wal"
-	"kv/internal/engine/wal/record"
 )
 
 type Options struct {
@@ -17,16 +16,16 @@ type ValidationOptions struct {
 }
 
 type KVStore struct {
-	store   *mvcc.Store
-	wal     wal.Appender
-	options Options
+	store    *mvcc.Store
+	appender record.Appender
+	options  Options
 }
 
-func New(store *mvcc.Store, walAppender wal.Appender, options Options) *KVStore {
+func New(store *mvcc.Store, appender record.Appender, options Options) *KVStore {
 	return &KVStore{
-		store:   store,
-		wal:     walAppender,
-		options: options,
+		store:    store,
+		appender: appender,
+		options:  options,
 	}
 }
 
@@ -54,7 +53,7 @@ func (s *KVStore) Set(key string, value []byte, transaction *tx.Transaction) err
 	}
 
 	valueRecord := record.NewValue(key, value, transaction.ID.Uint64())
-	if err := s.wal.Append(valueRecord); err != nil {
+	if err := s.appender.Append(valueRecord); err != nil {
 		transaction.Abort()
 		return err
 	}
@@ -73,7 +72,7 @@ func (s *KVStore) Delete(key string, transaction *tx.Transaction) error {
 	}
 
 	tombstoneRecord := record.NewTombstone(key, transaction.ID.Uint64())
-	if err := s.wal.Append(tombstoneRecord); err != nil {
+	if err := s.appender.Append(tombstoneRecord); err != nil {
 		transaction.Abort()
 		return err
 	}

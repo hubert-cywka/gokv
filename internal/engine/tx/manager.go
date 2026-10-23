@@ -1,8 +1,7 @@
 package tx
 
 import (
-	"kv/internal/engine/wal"
-	"kv/internal/engine/wal/record"
+	"kv/internal/engine/record"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,8 +14,8 @@ type ManagerOptions struct {
 }
 
 type Manager struct {
-	walAppender wal.Appender
-	manifest    *Manifest
+	appender record.Appender
+	manifest *Manifest
 
 	activeTxCount atomic.Int32
 	activeTx      sync.Map
@@ -28,11 +27,11 @@ type Manager struct {
 	options ManagerOptions
 }
 
-func NewManager(manifest *Manifest, walAppender wal.Appender, options ManagerOptions) *Manager {
+func NewManager(manifest *Manifest, appender record.Appender, options ManagerOptions) *Manager {
 	return &Manager{
-		manifest:    manifest,
-		walAppender: walAppender,
-		options:     options,
+		manifest: manifest,
+		appender: appender,
+		options:  options,
 	}
 }
 
@@ -121,7 +120,7 @@ func (tm *Manager) commit(txID ID) error {
 	}
 
 	rec := record.NewCommit(txID.Uint64())
-	if err := tm.walAppender.Append(rec); err != nil {
+	if err := tm.appender.Append(rec); err != nil {
 		return err
 	}
 

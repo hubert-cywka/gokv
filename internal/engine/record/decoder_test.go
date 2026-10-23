@@ -3,7 +3,7 @@ package record
 import (
 	"bytes"
 	"io"
-	"kv/internal/engine/wal/record/conversion"
+	"kv/internal/engine/record/conversion"
 	"kv/internal/test/assert"
 	"testing"
 )

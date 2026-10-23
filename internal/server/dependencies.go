@@ -3,8 +3,9 @@ package server
 import (
 	"fmt"
 	"kv/internal/config"
-	"kv/internal/engine"
 	"kv/internal/engine/mvcc"
+	"kv/internal/engine/record"
+	"kv/internal/engine/recovery"
 	"kv/internal/engine/tx"
 	"kv/internal/engine/wal"
 	"kv/internal/kvstore"
@@ -12,9 +13,9 @@ import (
 	"path/filepath"
 )
 
-func newKVStore(versionMap *mvcc.VersionMap, walReplayer wal.Replayer, walAppender wal.Appender, cfg config.Config) (*kvstore.KVStore, error) {
+func newKVStore(versionMap *mvcc.VersionMap, replayer recovery.Replayer, appender record.Appender, cfg config.Config) (*kvstore.KVStore, error) {
 	mvccStore := mvcc.NewStore(versionMap)
-	recoveryManager := engine.NewRecoveryManager(versionMap, walReplayer)
+	recoveryManager := recovery.NewRecoveryManager(versionMap, replayer)
 
 	if err := recoveryManager.Run(); err != nil {
 		return nil, fmt.Errorf("recovery failed: %w", err)
@@ -27,10 +28,10 @@ func newKVStore(versionMap *mvcc.VersionMap, walReplayer wal.Replayer, walAppend
 		},
 	}
 
-	return kvstore.New(mvccStore, walAppender, kvOptions), nil
+	return kvstore.New(mvccStore, appender, kvOptions), nil
 }
 
-func newTxManager(walAppender wal.Appender, cfg config.Config, closers *Disposer) (*tx.Manager, error) {
+func newTxManager(walAppender record.Appender, cfg config.Config, closers *Disposer) (*tx.Manager, error) {
 	tmManifestFile, err := openFile(cfg.TxManifestPath, os.O_RDWR|os.O_CREATE)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tx manifest: %w", err)

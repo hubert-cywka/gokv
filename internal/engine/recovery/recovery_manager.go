@@ -1,16 +1,15 @@
-package engine
+package recovery
 
 import (
 	"kv/internal/engine/mvcc"
+	"kv/internal/engine/record"
 	"kv/internal/engine/tx"
-	"kv/internal/engine/wal"
-	"kv/internal/engine/wal/record"
 	"sync"
 
 	"github.com/rs/zerolog/log"
 )
 
-func NewRecoveryManager(versionMap *mvcc.VersionMap, walReplayer wal.Replayer) *RecoveryManager {
+func NewRecoveryManager(versionMap *mvcc.VersionMap, walReplayer Replayer) *RecoveryManager {
 	return &RecoveryManager{
 		versionMap:  versionMap,
 		walReplayer: walReplayer,
@@ -19,7 +18,7 @@ func NewRecoveryManager(versionMap *mvcc.VersionMap, walReplayer wal.Replayer) *
 
 type RecoveryManager struct {
 	versionMap  *mvcc.VersionMap
-	walReplayer wal.Replayer
+	walReplayer Replayer
 	committed   map[uint64]struct{}
 	lock        sync.Mutex
 }

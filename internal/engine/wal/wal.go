@@ -3,7 +3,7 @@ package wal
 import (
 	"bufio"
 	"io"
-	"kv/internal/engine/wal/record"
+	"kv/internal/engine/record"
 	"sync"
 	"time"
 )
