@@ -1,6 +1,8 @@
-package executor
+package application
 
-import "kv/internal/command"
+import (
+	"kv/internal/command"
+)
 
 type ExecutionResult struct {
 	TxID  *uint64
@@ -8,19 +10,7 @@ type ExecutionResult struct {
 	Err   error
 }
 
-type TxControl interface {
-	Begin() error
-	Commit() error
-	AbortTx() error
-}
-
-type Store interface {
-	Set(key string, value []byte) error
-	Get(key string) ([]byte, error)
-	Delete(key string) error
-}
-
-type Handler func(tx TxControl, kv Store, cmd *command.Command) ExecutionResult
+type Handler func(session *Session, cmd *command.Command) ExecutionResult
 
 func HandlerByKeyword(keyword string) Handler {
 	return handlersByKeyword[command.NormalizeKeyword(keyword)]

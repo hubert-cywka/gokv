@@ -3,8 +3,8 @@ package http_server
 import (
 	"context"
 	"errors"
+	"kv/internal/application"
 	"kv/internal/command"
-	"kv/internal/engine/query"
 	"kv/internal/engine/tx"
 	"kv/internal/kvstore"
 	"kv/internal/protocol"
@@ -52,7 +52,7 @@ func createQueryHandler(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx con
 			return
 		}
 
-		session, sessionErr := query.NewSession(txManager, kvStore, req.TxID)
+		session, sessionErr := application.NewSession(txManager, kvStore, req.TxID)
 		if sessionErr != nil {
 			status := http.StatusInternalServerError
 			if errors.Is(sessionErr, tx.TransactionNotActiveError) {
@@ -69,7 +69,7 @@ func createQueryHandler(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx con
 	return http.HandlerFunc(handler)
 }
 
-func executeCommands(session *query.Session, commands []*command.Command) []queryResult {
+func executeCommands(session *application.Session, commands []*command.Command) []queryResult {
 	queryResults := make([]queryResult, len(commands))
 
 	execResults := session.ExecuteBulk(commands)

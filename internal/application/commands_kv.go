@@ -1,6 +1,8 @@
-package executor
+package application
 
-import "kv/internal/command"
+import (
+	"kv/internal/command"
+)
 
 func RegisterKVCommands() {
 	RegisterHandler("SET", handleSet)
@@ -44,17 +46,17 @@ func RegisterKVCommands() {
 	})
 }
 
-func handleSet(tx TxControl, store Store, cmd *command.Command) ExecutionResult {
-	err := store.Set(string(cmd.Arguments[0]), cmd.Arguments[1])
+func handleSet(session *Session, cmd *command.Command) ExecutionResult {
+	err := session.Set(string(cmd.Arguments[0]), cmd.Arguments[1])
 	return ExecutionResult{Err: err}
 }
 
-func handleGet(tx TxControl, store Store, cmd *command.Command) ExecutionResult {
-	value, err := store.Get(string(cmd.Arguments[0]))
+func handleGet(session *Session, cmd *command.Command) ExecutionResult {
+	value, err := session.Get(string(cmd.Arguments[0]))
 	return ExecutionResult{Value: value, Err: err}
 }
 
-func handleDelete(tx TxControl, store Store, cmd *command.Command) ExecutionResult {
-	err := store.Delete(string(cmd.Arguments[0]))
+func handleDelete(session *Session, cmd *command.Command) ExecutionResult {
+	err := session.Delete(string(cmd.Arguments[0]))
 	return ExecutionResult{Err: err}
 }

@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"kv/internal/application"
 	"kv/internal/config"
-	"kv/internal/executor"
 	"kv/internal/server"
 	"os"
 
@@ -22,8 +22,8 @@ func main() {
 		log.Fatal().Err(err).Msg("invalid start arguments")
 	}
 
-	executor.RegisterKVCommands()
-	executor.RegisterTxCommands()
+	application.RegisterKVCommands()
+	application.RegisterTxCommands()
 
 	if err := server.Run(cfg, mode, ctx); err != nil {
 		log.Fatal().Err(err).Msg("application startup failed")

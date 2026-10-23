@@ -1,6 +1,8 @@
-package executor
+package application
 
-import "kv/internal/command"
+import (
+	"kv/internal/command"
+)
 
 func RegisterTxCommands() {
 	RegisterHandler("TXBEGIN", handleBegin)
@@ -37,17 +39,17 @@ func RegisterTxCommands() {
 	})
 }
 
-func handleBegin(tx TxControl, _ Store, _ *command.Command) ExecutionResult {
-	err := tx.Begin()
+func handleBegin(session *Session, _ *command.Command) ExecutionResult {
+	err := session.Begin()
 	return ExecutionResult{Err: err}
 }
 
-func handleCommit(tx TxControl, _ Store, _ *command.Command) ExecutionResult {
-	err := tx.Commit()
+func handleCommit(session *Session, _ *command.Command) ExecutionResult {
+	err := session.Commit()
 	return ExecutionResult{Err: err}
 }
 
-func handleAbort(tx TxControl, _ Store, _ *command.Command) ExecutionResult {
-	err := tx.AbortTx()
+func handleAbort(session *Session, _ *command.Command) ExecutionResult {
+	err := session.AbortTx()
 	return ExecutionResult{Err: err}
 }

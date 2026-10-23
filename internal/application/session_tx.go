@@ -1,4 +1,4 @@
-package query
+package application
 
 func (s *Session) Begin() error {
 	return s.begin()

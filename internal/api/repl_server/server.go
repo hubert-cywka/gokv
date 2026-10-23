@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"kv/internal/application"
 	"kv/internal/command"
-	"kv/internal/engine/query"
 	"kv/internal/engine/tx"
 	"kv/internal/kvstore"
 	"kv/internal/protocol"
@@ -15,7 +15,7 @@ import (
 )
 
 func Start(txManager *tx.Manager, kvStore *kvstore.KVStore, ctx context.Context) error {
-	session, err := query.NewSession(txManager, kvStore, nil)
+	session, err := application.NewSession(txManager, kvStore, nil)
 	if err != nil {
 		return err
 	}

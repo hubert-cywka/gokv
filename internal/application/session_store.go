@@ -1,4 +1,4 @@
-package query
+package application
 
 func (s *Session) Set(key string, value []byte) error {
 	return s.set(key, value)

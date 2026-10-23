@@ -1,10 +1,9 @@
-package query
+package application
 
 import (
 	"errors"
 	"kv/internal/command"
 	"kv/internal/engine/tx"
-	"kv/internal/executor"
 	"kv/internal/kvstore"
 )
 
@@ -42,8 +41,8 @@ func NewSession(txManager *tx.Manager, kvStore *kvstore.KVStore, txID *uint64) (
 	return session, nil
 }
 
-func (s *Session) ExecuteBulk(commands []*command.Command) []executor.ExecutionResult {
-	results := make([]executor.ExecutionResult, len(commands))
+func (s *Session) ExecuteBulk(commands []*command.Command) []ExecutionResult {
+	results := make([]ExecutionResult, len(commands))
 	for i, cmd := range commands {
 		results[i] = s.Execute(cmd)
 		if results[i].Err != nil {
@@ -54,13 +53,13 @@ func (s *Session) ExecuteBulk(commands []*command.Command) []executor.ExecutionR
 	return results
 }
 
-func (s *Session) Execute(cmd *command.Command) executor.ExecutionResult {
-	handler := executor.HandlerByKeyword(cmd.Keyword)
+func (s *Session) Execute(cmd *command.Command) ExecutionResult {
+	handler := HandlerByKeyword(cmd.Keyword)
 	if handler == nil {
-		return executor.ExecutionResult{TxID: s.currentTxID, Err: ErrUnsupportedCommand}
+		return ExecutionResult{TxID: s.currentTxID, Err: ErrUnsupportedCommand}
 	}
 
-	result := handler(s, s, cmd)
+	result := handler(s, cmd)
 	result.TxID = s.currentTxID
 
 	if result.Err != nil {
