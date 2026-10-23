@@ -15,9 +15,9 @@ import (
 
 func newKVStore(versionMap *mvcc.VersionMap, replayer recovery.Replayer, appender record.Appender, cfg config.Config) (*kvstore.KVStore, error) {
 	mvccStore := mvcc.NewStore(versionMap)
-	recoveryManager := recovery.NewRecoveryManager(versionMap, replayer)
+	recoveryManager := recovery.NewManager(versionMap, replayer)
 
-	if err := recoveryManager.Run(); err != nil {
+	if err := recoveryManager.Recover(); err != nil {
 		return nil, fmt.Errorf("recovery failed: %w", err)
 	}
 

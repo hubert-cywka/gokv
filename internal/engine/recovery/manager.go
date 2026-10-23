@@ -9,21 +9,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func NewRecoveryManager(versionMap *mvcc.VersionMap, walReplayer Replayer) *RecoveryManager {
-	return &RecoveryManager{
+func NewManager(versionMap *mvcc.VersionMap, walReplayer Replayer) *Manager {
+	return &Manager{
 		versionMap:  versionMap,
 		walReplayer: walReplayer,
 	}
 }
 
-type RecoveryManager struct {
+type Manager struct {
 	versionMap  *mvcc.VersionMap
 	walReplayer Replayer
 	committed   map[uint64]struct{}
 	lock        sync.Mutex
 }
 
-func (rm *RecoveryManager) Run() error {
+func (rm *Manager) Recover() error {
 	rm.lock.Lock()
 	defer rm.lock.Unlock()
 
@@ -40,7 +40,7 @@ func (rm *RecoveryManager) Run() error {
 	return nil
 }
 
-func (rm *RecoveryManager) applyCommittedRecords(r record.Record) {
+func (rm *Manager) applyCommittedRecords(r record.Record) {
 	if _, ok := rm.committed[r.TxID]; !ok {
 		return
 	}
@@ -61,13 +61,13 @@ func (rm *RecoveryManager) applyCommittedRecords(r record.Record) {
 	}
 }
 
-func (rm *RecoveryManager) applyValueRecord(key string, r record.Record) {
+func (rm *Manager) applyValueRecord(key string, r record.Record) {
 	chain := rm.versionMap.GetOrCreateChain(key)
 	newVersion := mvcc.NewVersion(key, r.Value, tx.ID(r.TxID))
 	chain.CompareHeadAndSwap(chain.Head(), newVersion)
 }
 
-func (rm *RecoveryManager) applyFreezeRecord(key string) {
+func (rm *Manager) applyFreezeRecord(key string) {
 	chain, _ := rm.versionMap.GetChain(key)
 
 	if head := chain.Head(); head != nil {
@@ -75,7 +75,7 @@ func (rm *RecoveryManager) applyFreezeRecord(key string) {
 	}
 }
 
-func (rm *RecoveryManager) loadCommittedTransactions(r record.Record) {
+func (rm *Manager) loadCommittedTransactions(r record.Record) {
 	if r.Kind != record.Commit {
 		return
 	}
