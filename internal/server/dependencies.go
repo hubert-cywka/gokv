@@ -1,10 +1,7 @@
 package server
 
 import (
-	"context"
 	"fmt"
-	"kv/internal/api/http_server"
-	"kv/internal/api/repl_server"
 	"kv/internal/config"
 	"kv/internal/engine"
 	"kv/internal/engine/mvcc"
@@ -12,51 +9,8 @@ import (
 	"kv/internal/engine/wal"
 	"kv/internal/kvstore"
 	"os"
-	"os/signal"
 	"path/filepath"
 )
-
-func Run(cfg config.Config, mode StartMode, ctx context.Context) (err error) {
-	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
-	defer cancel()
-
-	var closers Disposer
-	defer func() {
-		if err = closers.Dispose(); err != nil {
-			return
-		}
-	}()
-
-	writeAheadLog, err := newWriteAheadLog(cfg, &closers)
-	if err != nil {
-		return err
-	}
-
-	txManager, err := newTxManager(writeAheadLog, cfg, &closers)
-	if err != nil {
-		return err
-	}
-
-	versionMap := mvcc.NewVersionMap()
-	kvStore, err := newKVStore(versionMap, writeAheadLog, writeAheadLog, cfg)
-	if err != nil {
-		return err
-	}
-
-	// TODO: "Smart" autovacuum - do not run it if there is no need to.
-	vacuumer := engine.NewVacuumer(versionMap, writeAheadLog)
-	vacuumer.RunOnInterval(txManager, cfg.VacuumInterval, ctx)
-
-	if mode == StartModeRepl {
-		return repl_server.Start(txManager, kvStore, ctx)
-	}
-
-	if mode == StartModeHTTP {
-		return http_server.Start(cfg.HTTPAddress, txManager, kvStore, ctx)
-	}
-
-	return nil
-}
 
 func newKVStore(versionMap *mvcc.VersionMap, walReplayer wal.Replayer, walAppender wal.Appender, cfg config.Config) (*kvstore.KVStore, error) {
 	mvccStore := mvcc.NewStore(versionMap)
@@ -80,8 +34,9 @@ func newTxManager(walAppender wal.Appender, cfg config.Config, closers *Disposer
 	tmManifestFile, err := openFile(cfg.TxManifestPath, os.O_RDWR|os.O_CREATE)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tx manifest: %w", err)
+	} else {
+		closers.Track(tmManifestFile)
 	}
-	closers.Track(tmManifestFile)
 
 	txManifest := tx.NewManifest(tmManifestFile)
 
@@ -98,8 +53,9 @@ func newWriteAheadLog(cfg config.Config, closers *Disposer) (*wal.WriteAheadLog,
 	logManifestFile, err := openFile(cfg.LogManifestPath, os.O_RDWR|os.O_CREATE)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log manifest: %w", err)
+	} else {
+		closers.Track(logManifestFile)
 	}
-	closers.Track(logManifestFile)
 
 	logManifest := wal.NewManifest(logManifestFile)
 
@@ -111,8 +67,9 @@ func newWriteAheadLog(cfg config.Config, closers *Disposer) (*wal.WriteAheadLog,
 	logStream, err := wal.NewLog(logManifest, logOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log stream: %w", err)
+	} else {
+		closers.Track(logStream)
 	}
-	closers.Track(logStream)
 
 	writeAheadLog := wal.NewWriteAheadLog(wal.Options{
 		WriterBufferSize:    cfg.WalBufferSize,
@@ -132,7 +89,6 @@ func openFile(filename string, flag int) (*os.File, error) {
 	}
 
 	file, err := os.OpenFile(filename, flag, 0644)
-
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package engine
+package vacuum
 
 import (
 	"kv/internal/engine/internal/mocks"
