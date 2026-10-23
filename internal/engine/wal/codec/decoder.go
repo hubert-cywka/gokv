@@ -1,8 +1,9 @@
-package record
+package codec
 
 import (
 	"encoding/binary"
 	"io"
+	"kv/internal/engine/record"
 )
 
 type Decoder struct {
@@ -14,7 +15,7 @@ func NewDecoder(reader io.Reader) *Decoder {
 	return &Decoder{reader: reader}
 }
 
-func (d *Decoder) Decode(r *Record) error {
+func (d *Decoder) Decode(r *record.Record) error {
 	if _, err := io.ReadFull(d.reader, d.headerBuf[:]); err != nil {
 		return err
 	}
@@ -35,7 +36,7 @@ func (d *Decoder) Decode(r *Record) error {
 		return err
 	}
 
-	if expectedChecksum != r.Checksum() {
+	if expectedChecksum != checksum(r) {
 		return ChecksumMismatchError
 	}
 

@@ -1,15 +1,16 @@
-package record
+package codec
 
 import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"kv/internal/engine/record"
 	"kv/internal/test/assert"
 	"testing"
 )
 
 func TestEncoder_Encode(t *testing.T) {
-	verifyLayout := func(t *testing.T, data []byte, r *Record) {
+	verifyLayout := func(t *testing.T, data []byte, r *record.Record) {
 		t.Helper()
 		offset := 0
 
@@ -29,7 +30,7 @@ func TestEncoder_Encode(t *testing.T) {
 		offset += valueLengthSize
 
 		gotChecksum := binary.LittleEndian.Uint32(data[offset : offset+checksumSize])
-		assert.Equal(t, gotChecksum, r.Checksum())
+		assert.Equal(t, gotChecksum, checksum(r))
 		offset += checksumSize
 
 		assert.BytesEqual(t, data[offset:offset+len(r.Key)], r.Key)
@@ -38,7 +39,7 @@ func TestEncoder_Encode(t *testing.T) {
 
 	t.Run("it encodes record with correct binary layout", func(t *testing.T) {
 		buf := new(bytes.Buffer)
-		record := NewValue("Key", []byte("Value"), 1)
+		record := record.NewValue("Key", []byte("Value"), 1)
 
 		err := NewEncoder(buf).Encode(record)
 
@@ -48,7 +49,7 @@ func TestEncoder_Encode(t *testing.T) {
 
 	t.Run("it returns error on writer failure", func(t *testing.T) {
 		encoder := NewEncoder(&limitedWriter{limit: 3})
-		err := encoder.Encode(NewValue("long-Key", []byte("Value"), 1))
+		err := encoder.Encode(record.NewValue("long-Key", []byte("Value"), 1))
 
 		assert.Error(t, err, io.ErrShortWrite)
 	})

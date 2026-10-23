@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"kv/internal/engine/record"
+	"kv/internal/engine/wal/codec"
 	"sync"
 	"time"
 )
@@ -30,8 +31,8 @@ type WriteAheadLog struct {
 	writer *bufio.Writer
 	mutex  sync.Mutex
 
-	encoder *record.Encoder
-	decoder *record.Decoder
+	encoder *codec.Encoder
+	decoder *codec.Decoder
 
 	batch   *batchCommitContext
 	options Options
@@ -48,8 +49,8 @@ func NewWriteAheadLog(options Options, file ioStream) *WriteAheadLog {
 	return &WriteAheadLog{
 		file:    file,
 		writer:  bufferedWriter,
-		encoder: record.NewEncoder(bufferedWriter),
-		decoder: record.NewDecoder(file),
+		encoder: codec.NewEncoder(bufferedWriter),
+		decoder: codec.NewDecoder(file),
 		options: options,
 	}
 }
